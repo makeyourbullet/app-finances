@@ -90,7 +90,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="mouvement in historiqueMouvementsEpargne[compte.id] || []" :key="mouvement.date + mouvement.description + mouvement.montant">
+                    <tr v-for="mouvement in (historiqueMouvementsEpargne[compte.id] || []).filter(m => m.montant !== 0)" :key="mouvement.date + mouvement.description + mouvement.montant">
                       <td>{{ formatDate(mouvement.date) }}</td>
                       <td>{{ mouvement.description }}</td>
                       <td class="text-right" :class="{ 'text-error': mouvement.montant < 0 }">

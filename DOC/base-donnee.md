@@ -126,7 +126,7 @@ Ce fichier documente les tables Supabase utilisées dans l'application.
 | `montant`      | numeric  | Montant dépensé                          |
 | `created_at`   | timestamp| Date de création                         |
 | `updated_at`   | timestamp| Dernière mise à jour                     |
-
+| `ordre`        | int4     | ordre d'affichage dans le tableau        |
 ---
 ## 📊 Table `suivi_budget`
 
@@ -140,7 +140,15 @@ Ce fichier documente les tables Supabase utilisées dans l'application.
 | `updated_at`   | timestamp| Dernière mise à jour                     |
 
 ---
+## 📊 Table `notes`
 
+| Colonne        | Type     | Description                              |
+|----------------|----------|------------------------------------------|
+| `id`           | uuid     | Identifiant unique                       |
+| `notes`        | text     | Notes                                    |
+| `created_at`   | timestamp| Date de création                         |
+
+---
 ## 🔐 Notes
 
 - Toutes les tables utilisent `uuid` comme identifiant principal (`id`)

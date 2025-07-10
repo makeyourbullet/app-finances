@@ -94,34 +94,6 @@
             </v-table>
           </v-card-text>
         </v-card>
-
-        <!-- Encart Dépenses -->
-        <v-card class="mt-4">
-          <v-card-title>Dépenses</v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item>
-                <v-list-item-title>Alloué aux projets</v-list-item-title>
-                <v-list-item-subtitle>{{ formatAmount(totalDepensesProjets) }} €</v-list-item-subtitle>
-              </v-list-item>
-              <v-list-item>
-                <v-list-item-title>Mouvements fixes</v-list-item-title>
-                <v-list-item-subtitle>{{ formatAmount(totalDepensesFixes) }} €</v-list-item-subtitle>
-              </v-list-item>
-              <v-list-item>
-                <v-list-item-title>Mouvements variables</v-list-item-title>
-                <v-list-item-subtitle>{{ formatAmount(totalDepensesVariables) }} €</v-list-item-subtitle>
-              </v-list-item>
-              <v-divider></v-divider>
-              <v-list-item>
-                <v-list-item-title class="font-weight-bold">Total Dépenses</v-list-item-title>
-                <v-list-item-subtitle class="font-weight-bold">
-                  {{ formatAmount(totalDepensesProjets + totalDepensesFixes + totalDepensesVariables) }} €
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-          </v-card-text>
-        </v-card>
       </v-col>
 
       <!-- Deuxième colonne : Budget courses puis Budget disponible -->
@@ -311,8 +283,75 @@
         </v-card>
       </v-col>
 
-      <!-- Troisième colonne : Virement -->
+      <!-- Troisième colonne : Dépenses, Notes, Virement -->
       <v-col cols="12" md="4">
+        <!-- Encart Dépenses -->
+        <v-card class="mb-4">
+          <v-card-title>Dépenses</v-card-title>
+          <v-card-text>
+            <v-list>
+              <v-list-item>
+                <v-list-item-title>Alloué aux projets</v-list-item-title>
+                <v-list-item-subtitle>{{ formatAmount(totalDepensesProjets) }} €</v-list-item-subtitle>
+              </v-list-item>
+              <v-list-item>
+                <v-list-item-title>Mouvements fixes</v-list-item-title>
+                <v-list-item-subtitle>{{ formatAmount(totalDepensesFixes) }} €</v-list-item-subtitle>
+              </v-list-item>
+              <v-list-item>
+                <v-list-item-title>Mouvements variables</v-list-item-title>
+                <v-list-item-subtitle>{{ formatAmount(totalDepensesVariables) }} €</v-list-item-subtitle>
+              </v-list-item>
+              <v-divider></v-divider>
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Total Dépenses</v-list-item-title>
+                <v-list-item-subtitle class="font-weight-bold">
+                  {{ formatAmount(totalDepensesProjets + totalDepensesFixes + totalDepensesVariables) }} €
+                </v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
+
+        <!-- Encart Notes -->
+        <v-card class="mb-4">
+          <v-card-title>Notes</v-card-title>
+          <v-card-text>
+            <v-form @submit.prevent="sauvegarderNote" ref="noteForm">
+              <v-textarea
+                v-model="note"
+                label="Écrire une note..."
+                rows="4"
+                auto-grow
+                outlined
+                class="mb-2"
+              ></v-textarea>
+              <v-btn color="primary" type="submit" :loading="loadingNote">Sauvegarder</v-btn>
+            </v-form>
+            <div v-if="notesList.length > 0" class="mt-4">
+              <v-list>
+                <v-list-item v-for="n in notesList" :key="n.id" class="align-start">
+                  <div class="d-flex flex-column w-100">
+                    <div v-if="editNoteId !== n.id">
+                      <div style="white-space: pre-line">{{ n.notes }}</div>
+                      <div class="text-caption text-grey">{{ formatDate(n.created_at) }}</div>
+                    </div>
+                    <div v-else>
+                      <v-textarea v-model="editNoteContent" rows="2" auto-grow outlined></v-textarea>
+                      <v-btn size="small" color="primary" @click="updateNote(n.id)">Enregistrer</v-btn>
+                      <v-btn size="small" @click="cancelEditNote">Annuler</v-btn>
+                    </div>
+                  </div>
+                  <template #append>
+                    <v-btn icon="mdi-pencil" size="small" variant="text" @click="startEditNote(n)"></v-btn>
+                    <v-btn icon="mdi-delete" size="small" color="error" variant="text" @click="deleteNote(n.id)"></v-btn>
+                  </template>
+                </v-list-item>
+              </v-list>
+            </div>
+          </v-card-text>
+        </v-card>
+
         <!-- Encart Virement -->
         <v-card>
           <v-card-title>Virement</v-card-title>
@@ -1393,6 +1432,87 @@ const validerVirement = async () => {
     loadingVirement.value = false
   }
 }
+
+const note = ref("");
+const notesList = ref([]);
+const loadingNote = ref(false);
+const noteForm = ref(null);
+const editNoteId = ref(null);
+const editNoteContent = ref("");
+
+const loadNotes = async () => {
+  const { data, error } = await client
+    .from('notes')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (!error && data) {
+    notesList.value = data;
+  }
+};
+
+onMounted(() => {
+  loadNotes();
+});
+
+const sauvegarderNote = async () => {
+  if (!note.value) return;
+  loadingNote.value = true;
+  try {
+    const { error } = await client
+      .from('notes')
+      .insert({ notes: note.value });
+    if (error) throw error;
+    note.value = "";
+    await loadNotes();
+  } catch (error) {
+    alert('Erreur lors de la sauvegarde de la note');
+  } finally {
+    loadingNote.value = false;
+  }
+};
+
+const startEditNote = (n) => {
+  editNoteId.value = n.id;
+  editNoteContent.value = n.notes;
+};
+const cancelEditNote = () => {
+  editNoteId.value = null;
+  editNoteContent.value = "";
+};
+const updateNote = async (id) => {
+  if (!editNoteContent.value) return;
+  loadingNote.value = true;
+  try {
+    const { error } = await client
+      .from('notes')
+      .update({ notes: editNoteContent.value })
+      .eq('id', id);
+    if (error) throw error;
+    editNoteId.value = null;
+    editNoteContent.value = "";
+    await loadNotes();
+  } catch (error) {
+    alert('Erreur lors de la modification de la note');
+  } finally {
+    loadingNote.value = false;
+  }
+};
+const deleteNote = async (id) => {
+  if (!confirm('Supprimer cette note ?')) return;
+  loadingNote.value = true;
+  try {
+    const { error } = await client
+      .from('notes')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    await loadNotes();
+  } catch (error) {
+    alert('Erreur lors de la suppression de la note');
+  } finally {
+    loadingNote.value = false;
+  }
+};
 </script>
 
 <style scoped>

@@ -37,7 +37,7 @@
           </v-progress-linear>
         </template>
         <div class="text-body-1">
-          <strong>Montant disponible:</strong> {{ montantEpargne }}€
+          <strong>Montant disponible:</strong> {{ montantDisponible }}€
         </div>
       </v-col>
     </v-row>
@@ -67,7 +67,7 @@
             ></v-btn>
           </v-card-title>
           <v-card-text>
-            <v-table v-if="recurringExpenses.length > 0">
+            <v-table v-if="recurringExpensesSorted.length > 0">
               <thead>
                 <tr>
                   <th>Description</th>
@@ -77,36 +77,45 @@
                   <th class="text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr v-for="expense in recurringExpenses" :key="expense.id">
-                  <td>{{ expense.description }}</td>
-                  <td>{{ expense.montant.toLocaleString('fr-FR') }} €</td>
-                  <td>{{ formatDate(expense.date_debut) }}</td>
-                  <td>
-                    <v-chip
-                      :color="getFrequencyColor(expense.frequence)"
-                      size="small"
-                    >
-                      {{ getFrequencyLabel(expense.frequence) }}
-                    </v-chip>
-                  </td>
-                  <td class="text-right">
-                    <v-btn
-                      icon="mdi-pencil"
-                      variant="text"
-                      size="small"
-                      @click="handleEditRecurringExpense(expense)"
-                    ></v-btn>
-                    <v-btn
-                      icon="mdi-delete"
-                      variant="text"
-                      size="small"
-                      color="error"
-                      @click="handleDeleteRecurringExpense(expense)"
-                    ></v-btn>
-                  </td>
-                </tr>
-              </tbody>
+              <draggable
+                v-model="recurringExpenses"
+                :list="recurringExpenses"
+                item-key="id"
+                tag="tbody"
+                @end="updateRecurringOrder"
+                handle=".drag-handle"
+              >
+                <template #item="{ element: expense }">
+                  <tr>
+                    <td><v-icon small class="mr-2 drag-handle">mdi-drag</v-icon>{{ expense.description }}</td>
+                    <td>{{ expense.montant.toLocaleString('fr-FR') }} €</td>
+                    <td>{{ formatDate(expense.date_debut) }}</td>
+                    <td>
+                      <v-chip
+                        :color="getFrequencyColor(expense.frequence)"
+                        size="small"
+                      >
+                        {{ getFrequencyLabel(expense.frequence) }}
+                      </v-chip>
+                    </td>
+                    <td class="text-right">
+                      <v-btn
+                        icon="mdi-pencil"
+                        variant="text"
+                        size="small"
+                        @click="handleEditRecurringExpense(expense)"
+                      ></v-btn>
+                      <v-btn
+                        icon="mdi-delete"
+                        variant="text"
+                        size="small"
+                        color="error"
+                        @click="handleDeleteRecurringExpense(expense)"
+                      ></v-btn>
+                    </td>
+                  </tr>
+                </template>
+              </draggable>
             </v-table>
             <div v-else class="text-center pa-4">
               Aucune dépense récurrente
@@ -124,7 +133,7 @@
           :project-objective="projectData ? projectData.objectif : null"
           :project-name="projectData ? projectData.nom_projet : ''"
           :project-id="projectData ? projectData.id : null"
-          @delete-expense="$emit('expense-deleted', $event)"
+          @delete-expense="handleDeleteExpense"
           @edit-expense="$emit('expense-edited', $event)"
           @expense-added="$emit('expense-added', $event)"
         />
@@ -159,6 +168,7 @@ import EditProjectButton from './EditProjectButton.vue'
 import DeleteProjectButton from './DeleteProjectButton.vue'
 import ForecastTable from './ForecastTable.vue'
 import ExpenseForm from './ExpenseForm.vue'
+import draggable from 'vuedraggable'
 
 const client = useSupabaseClient()
 
@@ -459,6 +469,21 @@ const handleSubmitExpense = async () => {
   console.log('handleSubmitExpense: Formulaire soumis, rechargement des dépenses et fermeture du dialogue.')
 }
 
+// Ajout de la méthode pour gérer la suppression d'une dépense projet
+const handleDeleteExpense = async (expenseId) => {
+  try {
+    const { error } = await client
+      .from('depenses_projet')
+      .delete()
+      .eq('id', expenseId)
+    if (error) throw error
+    // Recharger les données du projet pour mettre à jour le tableau
+    await loadProjectData()
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la dépense projet:', error)
+  }
+}
+
 // Charger les données au montage du composant
 onMounted(async () => {
   console.log('onMounted: Composant ProjectPanel monté. Chargement des données...')
@@ -466,4 +491,38 @@ onMounted(async () => {
   await loadRecurringExpenses() // Appel pour s'assurer que le tableau récurrent est à jour après les éventuelles générations
   console.log('onMounted: Chargement initial terminé.')
 })
+
+const montantDisponible = computed(() => {
+  // Montant brut de l'épargne projet
+  const cumul = props.montantEpargne || 0
+  // Dépenses du mois courant
+  if (!projectData.value || !projectData.value.depenses_projet) return cumul
+  const now = new Date()
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const depensesMois = projectData.value.depenses_projet.filter(dep => {
+    const d = new Date(dep.date)
+    return d >= firstDay && d <= lastDay
+  })
+  const totalDepensesMois = depensesMois.reduce((sum, d) => sum + (d.montant || 0), 0)
+  return cumul - totalDepensesMois
+})
+
+// Pour l'affichage trié par ordre
+const recurringExpensesSorted = computed(() => {
+  return [...recurringExpenses.value].sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0))
+})
+
+// Mettre à jour l'ordre en base après drag & drop
+const updateRecurringOrder = async (evt) => {
+  // evt est l'événement de vuedraggable
+  // On met à jour l'ordre pour chaque dépense
+  for (let i = 0; i < recurringExpenses.value.length; i++) {
+    const expense = recurringExpenses.value[i]
+    if (expense.ordre !== i) {
+      expense.ordre = i
+      await client.from('depenses_projet_recurrentes').update({ ordre: i }).eq('id', expense.id)
+    }
+  }
+}
 </script> 
