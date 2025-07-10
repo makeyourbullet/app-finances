@@ -60,7 +60,7 @@ Ce fichier documente les tables Supabase utilisées dans l'application.
 | `compte_id`    | uuid     | Compte concerné                          |
 | `created_at`   | timestamp| Date de création                         |
 | `updated_at`   | timestamp| Dernière mise à jour                     |
-
+| `nature`       | text     | Courant ou Épargne                       |
 ---
 
 ## 📉 Table `mouvements_variables_mensuels`
@@ -74,6 +74,18 @@ Ce fichier documente les tables Supabase utilisées dans l'application.
 | `created_at`              | timestamp| Date de création                         |
 | `updated_at`              | timestamp| Dernière mise à jour                     |
 
+---
+
+## 📉 Table `virements_epargnes`
+
+| Colonne        | Type     | Description                              |
+|----------------|----------|------------------------------------------|
+| `id`           | uuid     | Identifiant unique                       |
+| `mouvement_id` | uuid     | Mouvement variable concerné              |
+| `compte_linked`| text     | Compte source ou recepteur               |
+| `montant`      | numeric  | Montant de base                          |
+| `created_at`   | timestamp| Date de création                         |
+| `updated_at`   | timestamp| Dernière mise à jour                     |
 ---
 
 ## 💰 Table `epargne_projet`

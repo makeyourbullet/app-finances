@@ -97,6 +97,7 @@
                   <th>Compte</th>
                   <th class="text-right">Montant</th>
                   <th>Type</th>
+                  <th>Nature</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -108,6 +109,7 @@
                     {{ formatAmount(mouvement.montant, mouvement.type) }}€
                   </td>
                   <td>{{ mouvement.type }}</td>
+                  <td>{{ mouvement.nature }}</td>
                   <td>
                     <div class="d-flex gap-2">
                       <v-btn
@@ -216,6 +218,14 @@
               required
             ></v-select>
 
+            <v-select
+              v-model="newMouvementVariable.nature"
+              :items="['Courant', 'Épargne']"
+              label="Nature"
+              :rules="[v => !!v || 'La nature est requise']"
+              required
+            ></v-select>
+
             <v-text-field
               v-model.number="newMouvementVariable.montant"
               label="Montant (€)"
@@ -318,6 +328,14 @@
               required
             ></v-select>
 
+            <v-select
+              v-model="editedMouvementVariable.nature"
+              :items="['Courant', 'Épargne']"
+              label="Nature"
+              :rules="[v => !!v || 'La nature est requise']"
+              required
+            ></v-select>
+
             <v-text-field
               v-model.number="editedMouvementVariable.montant"
               label="Montant (€)"
@@ -377,7 +395,8 @@ const newMouvementVariable = ref({
   nom: '',
   compte_id: null,
   type: null,
-  montant: null
+  montant: null,
+  nature: null
 })
 
 // États pour les mouvements en cours d'édition
@@ -395,7 +414,8 @@ const editedMouvementVariable = ref({
   nom: '',
   compte_id: null,
   type: null,
-  montant: null
+  montant: null,
+  nature: null
 })
 
 // Charger les mouvements variables
@@ -579,7 +599,8 @@ const saveMouvementVariable = async () => {
         nom: newMouvementVariable.value.nom,
         compte_id: newMouvementVariable.value.compte_id,
         type: newMouvementVariable.value.type,
-        montant: newMouvementVariable.value.montant
+        montant: newMouvementVariable.value.montant,
+        nature: newMouvementVariable.value.nature
       }])
       .select()
       .single()
@@ -592,7 +613,8 @@ const saveMouvementVariable = async () => {
       nom: '',
       compte_id: null,
       type: null,
-      montant: null
+      montant: null,
+      nature: null
     }
   } catch (error) {
     console.error('Erreur lors de l\'ajout:', error)
@@ -606,7 +628,8 @@ const editMouvementVariable = (mouvement) => {
     nom: mouvement.nom,
     compte_id: mouvement.compte_id,
     type: mouvement.type,
-    montant: mouvement.montant
+    montant: mouvement.montant,
+    nature: mouvement.nature
   }
   showEditVariableDialog.value = true
 }
@@ -623,7 +646,8 @@ const updateMouvementVariable = async () => {
         nom: editedMouvementVariable.value.nom,
         compte_id: editedMouvementVariable.value.compte_id,
         type: editedMouvementVariable.value.type,
-        montant: editedMouvementVariable.value.montant
+        montant: editedMouvementVariable.value.montant,
+        nature: editedMouvementVariable.value.nature
       })
       .eq('id', editedMouvementVariable.value.id)
       .select()

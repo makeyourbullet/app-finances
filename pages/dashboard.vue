@@ -124,7 +124,7 @@
         </v-card>
       </v-col>
 
-      <!-- Deuxième colonne -->
+      <!-- Deuxième colonne : Budget courses puis Budget disponible -->
       <v-col cols="12" md="4">
         <!-- Suivi du budget courses -->
         <v-card>
@@ -216,12 +216,8 @@
             </v-table>
           </v-card-text>
         </v-card>
-      </v-col>
-
-      <!-- Troisième colonne -->
-      <v-col cols="12" md="4">
-        <!-- Suivi du budget dépenses personnelles -->
-        <v-card>
+        <!-- Suivi du budget disponible -->
+        <v-card class="mt-4">
           <v-card-title>Budget disponible</v-card-title>
           <v-card-text>
             <!-- Budget total du mois -->
@@ -314,12 +310,76 @@
           </v-card-text>
         </v-card>
       </v-col>
+
+      <!-- Troisième colonne : Virement -->
+      <v-col cols="12" md="4">
+        <!-- Encart Virement -->
+        <v-card>
+          <v-card-title>Virement</v-card-title>
+          <v-card-text>
+            <!-- Liste des mouvements variables épargne et leur montant -->
+            <div class="mb-4">
+              <div class="text-subtitle-1">Épargne disponible par mouvement</div>
+              <v-row>
+                <v-col cols="12" sm="6" v-for="(mv, idx) in mouvementsVariablesEpargne" :key="mv.id">
+                  <div class="d-flex justify-space-between align-center">
+                    <span>{{ mv.nom }}</span>
+                    <span :class="{ 'text-error': getMontantTotalMouvementVariableDashboard(mv.id) < 0 }">
+                      {{ formatAmount(getMontantTotalMouvementVariableDashboard(mv.id)) }} €
+                    </span>
+                  </div>
+                </v-col>
+              </v-row>
+            </div>
+            <v-form @submit.prevent="validerVirement" ref="virementForm">
+              <v-row>
+                <v-col cols="12" sm="6">
+                  <v-select
+                    v-model="virement.source"
+                    :items="mouvementsVariablesEpargne"
+                    item-title="nom"
+                    item-value="id"
+                    label="Source (épargne)"
+                    :rules="[v => !!v || 'Source requise']"
+                    required
+                  ></v-select>
+                </v-col>
+                <v-col cols="12" sm="6">
+                  <v-select
+                    v-model="virement.cible"
+                    :items="recepteursVirement"
+                    item-title="nom"
+                    item-value="id"
+                    label="Récepteur"
+                    :rules="[v => !!v || 'Récepteur requis']"
+                    required
+                  ></v-select>
+                </v-col>
+                <v-col cols="12">
+                  <v-text-field
+                    v-model="virement.montant"
+                    label="Montant (€)"
+                    type="number"
+                    :rules="[
+                      v => !!v || 'Montant requis',
+                      v => v > 0 || 'Le montant doit être positif',
+                      v => v <= (getMontantTotalMouvementVariableDashboard(virement.source) || 0) || 'Montant supérieur au disponible'
+                    ]"
+                    required
+                  ></v-text-field>
+                </v-col>
+              </v-row>
+              <v-btn color="primary" block type="submit" :loading="loadingVirement">Valider le virement</v-btn>
+            </v-form>
+          </v-card-text>
+        </v-card>
+      </v-col>
     </v-row>
   </v-container>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useSupabaseClient } from '#imports'
 
 const client = useSupabaseClient()
@@ -418,7 +478,8 @@ const loadMouvementsVariables = async () => {
         id,
         nom,
         type,
-        compte_id
+        compte_id,
+        nature
       )
     `)
     .gte('date', firstDayOfMonth.toISOString().split('T')[0])
@@ -440,7 +501,8 @@ const loadMouvementsVariables = async () => {
         nom: mensuel.mouvements_variables.nom,
         type: mensuel.mouvements_variables.type,
         compte_id: mensuel.mouvements_variables.compte_id,
-        montant: mensuel.montant
+        montant: mensuel.montant,
+        nature: mensuel.mouvements_variables.nature // <-- ajout nature
       }
       console.log('Mouvement mensuel traité:', mouvement)
       return mouvement
@@ -1111,9 +1173,21 @@ const calculerBudgetDisponible = async () => {
       totalMensualites = projets.reduce((sum, p) => sum + (p.mensualite || 0), 0)
     }
 
+    // 1. Charger les virements vers Compte Perso
+    let totalVirementsPerso = 0
+    try {
+      const { data: virementsPerso, error: virementsPersoError } = await client
+        .from('virements_epargnes')
+        .select('montant')
+        .eq('compte_linked', 'Compte Perso')
+      if (!virementsPersoError && virementsPerso) {
+        totalVirementsPerso = virementsPerso.reduce((sum, v) => sum + Math.abs(v.montant || 0), 0)
+      }
+    } catch (e) { console.error('Erreur chargement virements Compte Perso', e) }
+
     // 5. Calculer le budget disponible
     // On commence avec le salaire et on soustrait toutes les dépenses
-    budgetDisponible.value = salaire + totalMouvementsFixes + totalMouvementsVariables - totalMensualites
+    budgetDisponible.value = salaire + totalMouvementsFixes + totalMouvementsVariables - totalMensualites + totalVirementsPerso
 
     console.log('Calcul du budget disponible:', {
       salaire,
@@ -1136,6 +1210,78 @@ const calculerBudgetDisponible = async () => {
   } catch (error) {
     console.error('Erreur lors du calcul du budget disponible:', error)
   }
+}
+
+// Calcul du montant disponible pour les mouvements variables de nature épargne (comme dans epargnes.vue)
+const montantDispoEpargne = ref(0)
+const calculerMontantDispoEpargne = async () => {
+  // 1. Récupérer tous les mouvements variables de nature épargne
+  const { data: mouvements, error: errMouv } = await client
+    .from('mouvements_variables')
+    .select('id')
+    .eq('nature', 'Épargne')
+  if (errMouv || !mouvements) {
+    montantDispoEpargne.value = 0
+    return
+  }
+  const ids = mouvements.map(mv => mv.id)
+  // 2. Additionner tous les mouvements mensuels
+  let totalMensuels = 0
+  if (ids.length > 0) {
+    const { data: mensuels, error: errMensuels } = await client
+      .from('mouvements_variables_mensuels')
+      .select('montant, mouvements_variables_id')
+      .in('mouvements_variables_id', ids)
+    if (!errMensuels && mensuels) {
+      totalMensuels = mensuels.reduce((sum, m) => sum + (m.montant || 0), 0)
+    }
+  }
+  // 3. Additionner tous les virements épargnes
+  let totalVirements = 0
+  if (ids.length > 0) {
+    const { data: virements, error: errVirements } = await client
+      .from('virements_epargnes')
+      .select('montant, mouvement_id')
+      .in('mouvement_id', ids)
+    if (!errVirements && virements) {
+      totalVirements = virements.reduce((sum, v) => sum + (v.montant || 0), 0)
+    }
+  }
+  montantDispoEpargne.value = totalMensuels + totalVirements
+}
+
+// Calcul du montant pour chaque mouvement variable épargne (comme dans epargnes.vue)
+const totalMouvementVariableMensuelDashboard = ref({})
+const totalVirementVariableDashboard = ref({})
+
+const loadTotalMouvementVariableMensuelDashboard = async () => {
+  for (const mv of mouvementsVariablesEpargne.value) {
+    const { data, error } = await client
+      .from('mouvements_variables_mensuels')
+      .select('montant')
+      .eq('mouvements_variables_id', mv.id)
+    if (error) {
+      totalMouvementVariableMensuelDashboard.value[mv.id] = 0
+    } else {
+      totalMouvementVariableMensuelDashboard.value[mv.id] = data?.reduce((sum, m) => sum + (m.montant || 0), 0) || 0
+    }
+  }
+}
+const loadTotalVirementVariableDashboard = async () => {
+  for (const mv of mouvementsVariablesEpargne.value) {
+    const { data, error } = await client
+      .from('virements_epargnes')
+      .select('montant')
+      .eq('mouvement_id', mv.id)
+    if (error) {
+      totalVirementVariableDashboard.value[mv.id] = 0
+    } else {
+      totalVirementVariableDashboard.value[mv.id] = data?.reduce((sum, m) => sum + (m.montant || 0), 0) || 0
+    }
+  }
+}
+const getMontantTotalMouvementVariableDashboard = (mouvementId) => {
+  return (totalMouvementVariableMensuelDashboard.value[mouvementId] || 0) + (totalVirementVariableDashboard.value[mouvementId] || 0)
 }
 
 // Charger les données au montage du composant
@@ -1169,10 +1315,84 @@ onMounted(async () => {
 
     // 7. Calculer le récapitulatif des dépenses
     await calculerRecapDepenses()
+    await calculerMontantDispoEpargne()
+    await loadTotalMouvementVariableMensuelDashboard()
+    await loadTotalVirementVariableDashboard()
   } catch (error) {
     console.error('Erreur lors du chargement initial:', error)
   }
 })
+
+const virement = ref({ source: null, cible: null, montant: null })
+const virementForm = ref(null)
+const loadingVirement = ref(false)
+
+// Liste des mouvements variables de nature 'Épargne'
+const mouvementsVariablesEpargne = computed(() =>
+  mouvementsVariables.value.filter(mv => mv.nature === 'Épargne')
+)
+
+// Liste des récepteurs : mouvements variables épargne + comptes spéciaux
+const recepteursVirement = computed(() => [
+  ...mouvementsVariables.value.filter(mv => mv.nature === 'Épargne'),
+  { id: 'perso', nom: 'Compte Perso' },
+  { id: 'pro', nom: 'Compte Pro' }
+])
+
+const validerVirement = async () => {
+  if (!virementForm.value.validate()) return
+  // Vérification stricte côté JS
+  const max = getMontantTotalMouvementVariableDashboard(virement.value.source) || 0
+  if (Number(virement.value.montant) > max) {
+    alert('Le montant ne peut pas dépasser le disponible du compte source.')
+    return
+  }
+  if (!virement.value.source || !virement.value.cible || !virement.value.montant) return
+  loadingVirement.value = true
+  try {
+    // Récupérer les objets source et cible
+    const sourceObj = mouvementsVariables.value.find(mv => mv.id === virement.value.source)
+    const cibleObj = mouvementsVariables.value.find(mv => mv.id === virement.value.cible)
+    // Texte pour le compte_linked
+    const sourceNom = sourceObj ? sourceObj.nom : virement.value.source
+    const cibleNom = cibleObj ? cibleObj.nom : (virement.value.cible === 'perso' ? 'Compte Perso' : 'Compte Pro')
+    // 1. Créer l'entrée négative pour la source
+    const insertData = [
+      {
+        mouvement_id: virement.value.source,
+        compte_linked: cibleNom,
+        montant: -Math.abs(Number(virement.value.montant))
+      }
+    ]
+    // 2. Si le récepteur est un mouvement variable (nature épargne), créer l'entrée positive
+    if (cibleObj) {
+      insertData.push({
+        mouvement_id: virement.value.cible,
+        compte_linked: sourceNom,
+        montant: Math.abs(Number(virement.value.montant))
+      })
+    }
+    // 3. Insertion dans la table virements_epargnes
+    const { error } = await client
+      .from('virements_epargnes')
+      .insert(insertData)
+    if (error) throw error
+    // Reset form
+    virement.value = { source: null, cible: null, montant: null }
+    virementForm.value.reset()
+    // Mettre à jour dynamiquement le budget disponible
+    await calculerBudgetDisponible()
+    await loadDepensesPerso()
+    await calculerMontantDispoEpargne()
+    await loadTotalMouvementVariableMensuelDashboard()
+    await loadTotalVirementVariableDashboard()
+    alert('Virement enregistré !')
+  } catch (error) {
+    alert('Erreur lors du virement : ' + error.message)
+  } finally {
+    loadingVirement.value = false
+  }
+}
 </script>
 
 <style scoped>
