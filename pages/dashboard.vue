@@ -1,20 +1,14 @@
 <template>
   <v-container fluid>
+    <!-- Première ligne : Variables du mois (33%) et Budget courses + Budget disponible (66%) -->
     <v-row>
-      <!-- Première colonne -->
       <v-col cols="12" md="4">
         <!-- Variables du mois -->
-        <v-card class="mb-4">
-          <v-card-title>Variables du mois</v-card-title>
+        <v-card class="mb-4" style="padding-left:7%;padding-right:7%;padding-bottom:7%;">
           <v-card-text>
+            <div class="text-h5 text-center mb-4">{{ moisEnCours }}</div>
             <v-form ref="variablesForm">
               <v-table>
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th class="text-right">Montant du mois</th>
-                  </tr>
-                </thead>
                 <tbody>
                   <!-- Mouvements variables -->
                   <template v-for="mouvement in mouvementsVariables" :key="`mv-${mouvement.id}`">
@@ -24,16 +18,16 @@
                         <v-text-field
                           v-model="montantsMensuels[mouvement.id]"
                           type="text"
-                          density="compact"
-                          variant="outlined"
+                          variant="plain"
                           hide-details
-                          class="montant-input"
+                          class="montant-input text-center"
                           :placeholder="formatAmount(mouvement.montant)"
-                        ></v-text-field>
+                          suffix="€"
+                        >
+                        </v-text-field>
                       </td>
                     </tr>
                   </template>
-
                   <!-- Dépenses projet -->
                   <template v-for="depense in depensesProjets" :key="`dp-${depense.id}`">
                     <tr>
@@ -42,18 +36,18 @@
                         <v-text-field
                           v-model="montantsDepenses[depense.id]"
                           type="text"
-                          density="compact"
-                          variant="outlined"
+                          variant="plain"
                           hide-details
-                          class="montant-input"
+                          class="montant-input text-center"
                           :placeholder="formatAmount(depense.montant)"
-                        ></v-text-field>
+                          suffix="€"
+                        >
+                        </v-text-field>
                       </td>
                     </tr>
                   </template>
                 </tbody>
               </v-table>
-
               <v-btn
                 color="primary"
                 block
@@ -61,12 +55,199 @@
                 @click="sauvegarderMontants"
                 :loading="loading"
               >
-                Valider les montants du mois
+                C'est parti 🥳
               </v-btn>
             </v-form>
           </v-card-text>
         </v-card>
-
+      </v-col>
+      <v-col cols="12" md="8">
+        <!-- Budget courses -->
+        <v-card style="padding-left:3%;padding-right:3%;padding-bottom:3%;">
+          <v-card-title>Courses 🍓</v-card-title>
+          <v-card-text>
+            <v-row align="stretch" no-gutters>
+              <!-- Colonne 1 : demi-cercle progression + budget -->
+              <v-col cols="12" md="4" class="d-flex flex-column align-center justify-center">
+                <JaugeDemicercle
+                  :value="budgetCoursesTotal > 0 ? (totalDepensesCourses / budgetCoursesTotal) * 100 : 0"
+                  :max="100"
+                  unit="%"
+                  bgColor="#e0e0e0"
+                  progressColor="#1976d2"
+                  style="width:70%;"
+                />
+                <div class="text-center mt-2">
+                  <span style="font-size:2em;font-weight:bold;">{{ formatAmount(totalDepensesCourses) }} €</span>
+                  <span style="font-size:1.2em;color:#888;"> / {{ formatAmount(budgetCoursesTotal) }} €</span>
+                </div>
+              </v-col>
+              <!-- Colonne 2 : tableau, total, reste, formulaire -->
+              <v-col cols="12" md="8" style="padding-left:5%;">
+                <v-table class="mt-0">
+                  <tbody>
+                    <tr v-for="depense in depensesCourses" :key="depense.id">
+                      <td>{{ formatDate(depense.date) }}</td>
+                      <td>{{ depense.description }}</td>
+                      <td class="text-right">{{ formatAmount(depense.montant) }} €</td>
+                      <td class="text-right">
+                        <v-btn
+                          icon="mdi-delete"
+                          variant="text"
+                          size="small"
+                          color="error"
+                          @click="supprimerDepenseCourses(depense.id)"
+                        ></v-btn>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+                <div style="border-top:1px solid #e0e0e0;margin:16px 0;"></div>
+                <div class="mb-4 text-right">Reste à dépenser : {{ formatAmount(resteBudgetCourses) }} €</div>
+                <v-form @submit.prevent="ajouterDepenseCourses" ref="depenseCoursesForm">
+                  <div class="d-flex align-center" style="width:100%; gap: 8px;">
+                    <v-text-field
+                      v-model="nouvelleDepenseCourses.description"
+                      label="Description"
+                      type="text"
+                      density="compact"
+                      variant="outlined"
+                      :rules="[v => !!v || 'Description requise']"
+                      style="flex:1; min-width:0;"
+                    ></v-text-field>
+                    <v-text-field
+                      v-model="nouvelleDepenseCourses.montant"
+                      label="Montant"
+                      type="text"
+                      density="compact"
+                      variant="outlined"
+                      :rules="[v => !!v || 'Montant requis', v => !isNaN(parseFloat(v.replace(',', '.'))) || 'Montant invalide']"
+                      style="flex:1; min-width:0;"
+                      suffix="€"
+                    ></v-text-field>
+                    <v-btn
+                      color="primary"
+                      type="submit"
+                      :loading="loadingDepenseCourses"
+                      style="height:40px; align-self:stretch;"
+                    >
+                      Je valide 💰
+                    </v-btn>
+                  </div>
+                </v-form>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
+        <!-- Budget disponible -->
+        <v-card class="mt-4" style="padding-left:3%;padding-right:3%;padding-bottom:3%;">
+          <v-card-title>Autre 📈</v-card-title>
+          <v-card-text>
+            <v-row align="stretch" no-gutters>
+              <!-- Colonne 1 : jauge + budget -->
+              <v-col cols="12" md="4" class="d-flex flex-column align-center justify-center">
+                <JaugeDemicercle
+                  :value="budgetDisponibleInitial > 0 ? (totalDepensesPerso / budgetDisponibleInitial) * 100 : 0"
+                  :max="100"
+                  unit="%"
+                  bgColor="#e0e0e0"
+                  progressColor="#1976d2"
+                  style="width:70%;"
+                />
+                <div class="text-center mt-2">
+                  <span style="font-size:2em;font-weight:bold;">{{ formatAmount(totalDepensesPerso) }} €</span>
+                  <span style="font-size:1.2em;color:#888;"> / {{ formatAmount(budgetDisponibleInitial) }} €</span>
+                </div>
+              </v-col>
+              <!-- Colonne 2 : tableau, reste, formulaire -->
+              <v-col cols="12" md="8" style="padding-left:5%;">
+                <v-table class="mt-0">
+                  <tbody>
+                    <tr v-for="depense in depensesPerso" :key="depense.id">
+                      <td>{{ formatDate(depense.date) }}</td>
+                      <td>{{ depense.description }}</td>
+                      <td class="text-right">{{ formatAmount(depense.montant) }} €</td>
+                      <td class="text-right">
+                        <v-btn
+                          icon="mdi-delete"
+                          variant="text"
+                          size="small"
+                          color="error"
+                          @click="supprimerDepensePerso(depense.id)"
+                        ></v-btn>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+                <div style="border-top:1px solid #e0e0e0;margin:16px 0;"></div>
+                <div class="mb-4 text-right">Reste à dépenser : {{ formatAmount(resteBudgetPerso) }} €</div>
+                <v-form @submit.prevent="ajouterDepensePerso" ref="depensePersoForm">
+                  <div class="d-flex align-center" style="width:100%; gap: 8px;">
+                    <v-text-field
+                      v-model="nouvelleDepensePerso.description"
+                      label="Description"
+                      type="text"
+                      density="compact"
+                      variant="outlined"
+                      :rules="[v => !!v || 'Description requise']"
+                      style="flex:1; min-width:0;"
+                    ></v-text-field>
+                    <v-text-field
+                      v-model="nouvelleDepensePerso.montant"
+                      label="Montant"
+                      type="text"
+                      density="compact"
+                      variant="outlined"
+                      :rules="[v => !!v || 'Montant requis', v => !isNaN(parseFloat(v.replace(',', '.'))) || 'Montant invalide']"
+                      style="flex:1; min-width:0;"
+                      suffix="€"
+                    ></v-text-field>
+                    <v-btn
+                      color="primary"
+                      type="submit"
+                      :loading="loadingDepensePerso"
+                      style="height:40px; align-self:stretch;"
+                    >
+                      Je valide 💰
+                    </v-btn>
+                  </div>
+                </v-form>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+    <!-- Deuxième ligne : 3 colonnes de 33% -->
+    <v-row class="mt-4">
+      <v-col cols="12" md="4">
+        <!-- Dépenses -->
+        <v-card class="mb-4">
+          <v-card-title>Dépenses</v-card-title>
+          <v-card-text>
+            <v-list>
+              <v-list-item>
+                <v-list-item-title>Alloué aux projets</v-list-item-title>
+                <v-list-item-subtitle>{{ formatAmount(totalDepensesProjets) }} €</v-list-item-subtitle>
+              </v-list-item>
+              <v-list-item>
+                <v-list-item-title>Mouvements fixes</v-list-item-title>
+                <v-list-item-subtitle>{{ formatAmount(totalDepensesFixes) }} €</v-list-item-subtitle>
+              </v-list-item>
+              <v-list-item>
+                <v-list-item-title>Mouvements variables</v-list-item-title>
+                <v-list-item-subtitle>{{ formatAmount(totalDepensesVariables) }} €</v-list-item-subtitle>
+              </v-list-item>
+              <v-divider></v-divider>
+              <v-list-item>
+                <v-list-item-title class="font-weight-bold">Total Dépenses</v-list-item-title>
+                <v-list-item-subtitle class="font-weight-bold">
+                  {{ formatAmount(totalDepensesProjets + totalDepensesFixes + totalDepensesVariables) }} €
+                </v-list-item-subtitle>
+              </v-list-item>
+            </v-list>
+          </v-card-text>
+        </v-card>
         <!-- Transactions du mois -->
         <v-card>
           <v-card-title>Transactions du mois</v-card-title>
@@ -95,264 +276,8 @@
           </v-card-text>
         </v-card>
       </v-col>
-
-      <!-- Deuxième colonne : Budget courses puis Budget disponible -->
       <v-col cols="12" md="4">
-        <!-- Suivi du budget courses -->
-        <v-card>
-          <v-card-title>Suivi du budget courses</v-card-title>
-          <v-card-text>
-            <!-- Budget total du mois -->
-            <div class="mb-4">
-              <div class="text-subtitle-1">Budget total du mois</div>
-              <div class="text-h5">{{ formatAmount(budgetCoursesTotal) }} €</div>
-            </div>
-
-            <!-- Formulaire d'ajout de dépense -->
-            <v-form @submit.prevent="ajouterDepenseCourses" ref="depenseCoursesForm">
-              <v-row>
-                <v-col cols="12" sm="6">
-                  <v-text-field
-                    v-model="nouvelleDepenseCourses.montant"
-                    label="Montant"
-                    type="text"
-                    density="compact"
-                    variant="outlined"
-                    :rules="[v => !!v || 'Montant requis', v => !isNaN(parseFloat(v.replace(',', '.'))) || 'Montant invalide']"
-                  ></v-text-field>
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <v-text-field
-                    v-model="nouvelleDepenseCourses.description"
-                    label="Description"
-                    type="text"
-                    density="compact"
-                    variant="outlined"
-                    :rules="[v => !!v || 'Description requise']"
-                  ></v-text-field>
-                </v-col>
-              </v-row>
-              <v-btn
-                color="primary"
-                block
-                type="submit"
-                :loading="loadingDepenseCourses"
-              >
-                Ajouter la dépense
-              </v-btn>
-            </v-form>
-
-            <!-- Liste des dépenses -->
-            <v-table class="mt-4">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th class="text-right">Montant</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="depense in depensesCourses" :key="depense.id">
-                  <td>{{ formatDate(depense.date) }}</td>
-                  <td>{{ depense.description }}</td>
-                  <td class="text-right">{{ formatAmount(depense.montant) }} €</td>
-                  <td class="text-right">
-                    <v-btn
-                      icon="mdi-delete"
-                      variant="text"
-                      size="small"
-                      color="error"
-                      @click="supprimerDepenseCourses(depense.id)"
-                    ></v-btn>
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="2" class="text-right font-weight-bold">Total dépensé</td>
-                  <td class="text-right font-weight-bold">{{ formatAmount(totalDepensesCourses) }} €</td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td colspan="2" class="text-right font-weight-bold">Reste à dépenser</td>
-                  <td class="text-right font-weight-bold" :class="{
-                    'text-success': resteBudgetCourses > 0,
-                    'text-error': resteBudgetCourses < 0
-                  }">
-                    {{ formatAmount(resteBudgetCourses) }} €
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </v-table>
-          </v-card-text>
-        </v-card>
-        <!-- Suivi du budget disponible -->
-        <v-card class="mt-4">
-          <v-card-title>Budget disponible</v-card-title>
-          <v-card-text>
-            <!-- Budget total du mois -->
-            <div class="mb-4">
-              <div class="text-subtitle-1">Budget disponible du mois</div>
-              <div class="text-h5" :class="{
-                'text-success': budgetDisponible > 0,
-                'text-error': budgetDisponible < 0
-              }">{{ formatAmount(budgetDisponible) }} €</div>
-            </div>
-
-            <!-- Formulaire d'ajout de dépense -->
-            <v-form @submit.prevent="ajouterDepensePerso" ref="depensePersoForm">
-              <v-row>
-                <v-col cols="12" sm="6">
-                  <v-text-field
-                    v-model="nouvelleDepensePerso.montant"
-                    label="Montant"
-                    type="text"
-                    density="compact"
-                    variant="outlined"
-                    :rules="[v => !!v || 'Montant requis', v => !isNaN(parseFloat(v.replace(',', '.'))) || 'Montant invalide']"
-                  ></v-text-field>
-                </v-col>
-                <v-col cols="12" sm="6">
-                  <v-text-field
-                    v-model="nouvelleDepensePerso.description"
-                    label="Description"
-                    type="text"
-                    density="compact"
-                    variant="outlined"
-                    :rules="[v => !!v || 'Description requise']"
-                  ></v-text-field>
-                </v-col>
-              </v-row>
-              <v-btn
-                color="primary"
-                block
-                type="submit"
-                :loading="loadingDepensePerso"
-              >
-                Ajouter la dépense
-              </v-btn>
-            </v-form>
-
-            <!-- Liste des dépenses -->
-            <v-table class="mt-4">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th class="text-right">Montant</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="depense in depensesPerso" :key="depense.id">
-                  <td>{{ formatDate(depense.date) }}</td>
-                  <td>{{ depense.description }}</td>
-                  <td class="text-right">{{ formatAmount(depense.montant) }} €</td>
-                  <td class="text-right">
-                    <v-btn
-                      icon="mdi-delete"
-                      variant="text"
-                      size="small"
-                      color="error"
-                      @click="supprimerDepensePerso(depense.id)"
-                    ></v-btn>
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="2" class="text-right font-weight-bold">Total dépensé</td>
-                  <td class="text-right font-weight-bold">{{ formatAmount(totalDepensesPerso) }} €</td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td colspan="2" class="text-right font-weight-bold">Reste à dépenser</td>
-                  <td class="text-right font-weight-bold" :class="{
-                    'text-success': resteBudgetPerso > 0,
-                    'text-error': resteBudgetPerso < 0
-                  }">
-                    {{ formatAmount(resteBudgetPerso) }} €
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </v-table>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <!-- Troisième colonne : Dépenses, Notes, Virement -->
-      <v-col cols="12" md="4">
-        <!-- Encart Dépenses -->
-        <v-card class="mb-4">
-          <v-card-title>Dépenses</v-card-title>
-          <v-card-text>
-            <v-list>
-              <v-list-item>
-                <v-list-item-title>Alloué aux projets</v-list-item-title>
-                <v-list-item-subtitle>{{ formatAmount(totalDepensesProjets) }} €</v-list-item-subtitle>
-              </v-list-item>
-              <v-list-item>
-                <v-list-item-title>Mouvements fixes</v-list-item-title>
-                <v-list-item-subtitle>{{ formatAmount(totalDepensesFixes) }} €</v-list-item-subtitle>
-              </v-list-item>
-              <v-list-item>
-                <v-list-item-title>Mouvements variables</v-list-item-title>
-                <v-list-item-subtitle>{{ formatAmount(totalDepensesVariables) }} €</v-list-item-subtitle>
-              </v-list-item>
-              <v-divider></v-divider>
-              <v-list-item>
-                <v-list-item-title class="font-weight-bold">Total Dépenses</v-list-item-title>
-                <v-list-item-subtitle class="font-weight-bold">
-                  {{ formatAmount(totalDepensesProjets + totalDepensesFixes + totalDepensesVariables) }} €
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-          </v-card-text>
-        </v-card>
-
-        <!-- Encart Notes -->
-        <v-card class="mb-4">
-          <v-card-title>Notes</v-card-title>
-          <v-card-text>
-            <v-form @submit.prevent="sauvegarderNote" ref="noteForm">
-              <v-textarea
-                v-model="note"
-                label="Écrire une note..."
-                rows="4"
-                auto-grow
-                outlined
-                class="mb-2"
-              ></v-textarea>
-              <v-btn color="primary" type="submit" :loading="loadingNote">Sauvegarder</v-btn>
-            </v-form>
-            <div v-if="notesList.length > 0" class="mt-4">
-              <v-list>
-                <v-list-item v-for="n in notesList" :key="n.id" class="align-start">
-                  <div class="d-flex flex-column w-100">
-                    <div v-if="editNoteId !== n.id">
-                      <div style="white-space: pre-line">{{ n.notes }}</div>
-                      <div class="text-caption text-grey">{{ formatDate(n.created_at) }}</div>
-                    </div>
-                    <div v-else>
-                      <v-textarea v-model="editNoteContent" rows="2" auto-grow outlined></v-textarea>
-                      <v-btn size="small" color="primary" @click="updateNote(n.id)">Enregistrer</v-btn>
-                      <v-btn size="small" @click="cancelEditNote">Annuler</v-btn>
-                    </div>
-                  </div>
-                  <template #append>
-                    <v-btn icon="mdi-pencil" size="small" variant="text" @click="startEditNote(n)"></v-btn>
-                    <v-btn icon="mdi-delete" size="small" color="error" variant="text" @click="deleteNote(n.id)"></v-btn>
-                  </template>
-                </v-list-item>
-              </v-list>
-            </div>
-          </v-card-text>
-        </v-card>
-
-        <!-- Encart Virement -->
+        <!-- Virement -->
         <v-card>
           <v-card-title>Virement</v-card-title>
           <v-card-text>
@@ -410,6 +335,73 @@
               </v-row>
               <v-btn color="primary" block type="submit" :loading="loadingVirement">Valider le virement</v-btn>
             </v-form>
+            <!-- Historique des virements du mois en cours -->
+            <div class="mt-4">
+              <div class="text-subtitle-1 mb-2">Historique des virements du mois en cours</div>
+              <v-table v-if="virementsMoisCourant.length">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Mouvement</th>
+                    <th>Source/Cible</th>
+                    <th class="text-right">Montant</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="v in virementsMoisCourant" :key="v.id">
+                    <td>{{ formatDate(v.created_at) }}</td>
+                    <td>{{ mouvementsVariablesMap[v.mouvement_id] || '-' }}</td>
+                    <td>{{ v.compte_linked }}</td>
+                    <td class="text-right">{{ formatAmount(v.montant) }} €</td>
+                    <td class="text-right">
+                      <v-btn icon="mdi-delete" color="error" size="small" variant="text" @click="supprimerVirement(v)"></v-btn>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+              <div v-else class="text-caption text-grey">Aucun virement ce mois-ci.</div>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12" md="4">
+        <!-- Notes -->
+        <v-card class="mb-4">
+          <v-card-title>Notes</v-card-title>
+          <v-card-text>
+            <v-form @submit.prevent="sauvegarderNote" ref="noteForm">
+              <v-textarea
+                v-model="note"
+                label="Écrire une note..."
+                rows="4"
+                auto-grow
+                outlined
+                class="mb-2"
+              ></v-textarea>
+              <v-btn color="primary" type="submit" :loading="loadingNote">Sauvegarder</v-btn>
+            </v-form>
+            <div v-if="notesList.length > 0" class="mt-4">
+              <v-list>
+                <v-list-item v-for="n in notesList" :key="n.id" class="align-start">
+                  <div class="d-flex flex-column w-100">
+                    <div v-if="editNoteId !== n.id">
+                      <div style="white-space: pre-line">{{ n.notes }}</div>
+                      <div class="text-caption text-grey">{{ formatDate(n.created_at) }}</div>
+                    </div>
+                    <div v-else>
+                      <v-textarea v-model="editNoteContent" rows="2" auto-grow outlined></v-textarea>
+                      <v-btn size="small" color="primary" @click="updateNote(n.id)">Enregistrer</v-btn>
+                      <v-btn size="small" @click="cancelEditNote">Annuler</v-btn>
+                    </div>
+                  </div>
+                  <template #append>
+                    <v-btn icon="mdi-pencil" size="small" variant="text" @click="startEditNote(n)"></v-btn>
+                    <v-btn icon="mdi-delete" size="small" color="error" variant="text" @click="deleteNote(n.id)"></v-btn>
+                  </template>
+                </v-list-item>
+              </v-list>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -419,6 +411,8 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import JaugeDemicercle from '@/components/JaugeDemicercle.vue'
+// import VueSvgGauge from 'vue-svg-gauge' // SUPPRIMER l'import statique
 import { useSupabaseClient } from '#imports'
 
 const client = useSupabaseClient()
@@ -1324,6 +1318,49 @@ const getMontantTotalMouvementVariableDashboard = (mouvementId) => {
 }
 
 // Charger les données au montage du composant
+const mouvementsVariablesMap = ref({})
+
+const loadMouvementsVariablesMap = async () => {
+  const { data, error } = await client
+    .from('mouvements_variables')
+    .select('id, nom')
+  if (error) {
+    console.error('Erreur lors du chargement des mouvements variables:', error)
+    return
+  }
+  const map = {}
+  for (const mv of data) {
+    map[mv.id] = mv.nom
+  }
+  mouvementsVariablesMap.value = map
+}
+
+const supprimerVirement = async (virement) => {
+  if (!confirm('Supprimer ce virement et son jumeau ?')) return
+  // Supprimer toutes les lignes ayant le même created_at
+  const { data: virementsJumeaux, error: errorJumeaux } = await client
+    .from('virements_epargnes')
+    .select('id')
+    .eq('created_at', virement.created_at)
+  if (errorJumeaux) {
+    console.error('Erreur lors de la recherche des virements jumeaux:', errorJumeaux)
+    return
+  }
+  const ids = virementsJumeaux.map(v => v.id)
+  if (ids.length) {
+    const { error: deleteError } = await client
+      .from('virements_epargnes')
+      .delete()
+      .in('id', ids)
+    if (deleteError) {
+      console.error('Erreur lors de la suppression des virements:', deleteError)
+      return
+    }
+    // Rafraîchir la liste
+    await loadVirementsMoisCourant()
+  }
+}
+
 onMounted(async () => {
   try {
     // 1. Charger d'abord les mouvements variables pour avoir les IDs
@@ -1357,8 +1394,17 @@ onMounted(async () => {
     await calculerMontantDispoEpargne()
     await loadTotalMouvementVariableMensuelDashboard()
     await loadTotalVirementVariableDashboard()
+    await loadMouvementsVariablesMap()
+    await loadVirementsMoisCourant()
   } catch (error) {
     console.error('Erreur lors du chargement initial:', error)
+  }
+})
+
+const VueSvgGauge = ref(null)
+onMounted(async () => {
+  if (typeof window !== 'undefined') {
+    VueSvgGauge.value = (await import('vue-svg-gauge')).default
   }
 })
 
@@ -1425,6 +1471,7 @@ const validerVirement = async () => {
     await calculerMontantDispoEpargne()
     await loadTotalMouvementVariableMensuelDashboard()
     await loadTotalVirementVariableDashboard()
+    await loadVirementsMoisCourant()
     alert('Virement enregistré !')
   } catch (error) {
     alert('Erreur lors du virement : ' + error.message)
@@ -1513,6 +1560,65 @@ const deleteNote = async (id) => {
     loadingNote.value = false;
   }
 };
+
+const virementsMoisCourant = ref([])
+
+const loadVirementsMoisCourant = async () => {
+  const now = new Date();
+  const moisCourant = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const dateDebutMois = `${moisCourant}-01`;
+  const dernierJourMois = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dateFinMois = `${moisCourant}-${String(dernierJourMois).padStart(2, '0')}`;
+  const { data, error } = await client
+    .from('virements_epargnes')
+    .select('id, created_at, montant, mouvement_id, compte_linked')
+    .gte('created_at', dateDebutMois)
+    .lte('created_at', dateFinMois)
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.error('Erreur lors du chargement des virements du mois en cours:', error)
+    return
+  }
+  virementsMoisCourant.value = data || []
+}
+
+const percentCourses = computed(() => budgetCoursesTotal.value > 0 ? totalDepensesCourses.value / budgetCoursesTotal.value : 0)
+
+const progressionBudgetDisponible = computed(() => {
+  const initial = budgetDisponible.value + totalDepensesPerso.value
+  if (initial <= 0) return 0
+  return ((initial - budgetDisponible.value) / initial) * 100
+})
+
+const budgetDisponibleInitial = computed(() => budgetDisponible.value + totalDepensesPerso.value)
+
+const moisEnCours = computed(() => {
+  const now = new Date();
+  return now.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+});
+
+const arcPathCourses = computed(() => {
+  const percent = budgetCoursesTotal.value > 0 ? totalDepensesCourses.value / budgetCoursesTotal.value : 0
+  const endAngle = 180 + 180 * percent
+  const sweep = endAngle - 180 > 180 ? 1 : 0
+  return describeArc(60, 60, 50, 180, endAngle, sweep)
+})
+
+function describeArc(cx, cy, r, startAngle, endAngle, sweepFlag) {
+  const start = polarToCartesian(cx, cy, r, endAngle)
+  const end = polarToCartesian(cx, cy, r, startAngle)
+  return [
+    "M", start.x, start.y,
+    "A", r, r, 0, sweepFlag, 0, end.x, end.y
+  ].join(" ")
+}
+function polarToCartesian(cx, cy, r, angle) {
+  const rad = (angle-90) * Math.PI / 180.0;
+  return {
+    x: cx + (r * Math.cos(rad)),
+    y: cy + (r * Math.sin(rad))
+  };
+}
 </script>
 
 <style scoped>
@@ -1522,6 +1628,10 @@ const deleteNote = async (id) => {
 
 .v-table {
   width: 100%;
+}
+
+.v-table td, .v-table th, td, th {
+  vertical-align: middle !important;
 }
 
 /* Cacher les flèches des inputs number */

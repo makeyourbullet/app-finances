@@ -112,6 +112,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useSupabaseClient } from '#imports'
 import Chart from 'chart.js/auto'
+import useEnsureEpargneProjet from '@/composables/useEnsureEpargneProjet'
 
 const client = useSupabaseClient()
 const activeTab = ref(null)
@@ -125,6 +126,7 @@ const mouvementsVariables = ref([])
 const totalMouvementVariableMensuel = ref({})
 // 1. Ajouter une nouvelle variable pour stocker les virements par mouvement variable
 const totalVirementVariable = ref({})
+const depensesProjetsMoisCourant = ref({})
 
 // Charger les comptes d'épargne et PEA
 const loadComptes = async () => {
@@ -235,7 +237,9 @@ const getTotalCompte = (compteId) => {
 
 // Calculer le montant disponible pour un projet
 const getProjetMontant = (projetId) => {
-  return montantsProjets.value[projetId]?.montant_cumul || 0
+  const montantCumul = montantsProjets.value[projetId]?.montant_cumul || 0
+  const depensesMois = depensesProjetsMoisCourant.value[projetId] || 0
+  return montantCumul - depensesMois
 }
 
 // Formater les montants
@@ -440,6 +444,30 @@ const loadHistoriqueMouvementsEpargne = async () => {
   }
 }
 
+// Charger les dépenses du mois en cours pour chaque projet
+const loadDepensesProjetsMoisCourant = async () => {
+  const now = new Date();
+  const moisCourant = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const dateDebutMois = `${moisCourant}-01`;
+  const dernierJourMois = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dateFinMois = `${moisCourant}-${String(dernierJourMois).padStart(2, '0')}`;
+  const { data, error } = await client
+    .from('depenses_projet')
+    .select('projet_id, montant')
+    .gte('date', dateDebutMois)
+    .lte('date', dateFinMois)
+  if (error) {
+    console.error('Erreur lors du chargement des dépenses projets du mois en cours:', error)
+    return
+  }
+  // Regrouper par projet_id
+  const depensesParProjet = {}
+  for (const dep of data) {
+    depensesParProjet[dep.projet_id] = (depensesParProjet[dep.projet_id] || 0) + (dep.montant || 0)
+  }
+  depensesProjetsMoisCourant.value = depensesParProjet
+}
+
 onMounted(async () => {
   await loadComptes()
   await loadProjets()
@@ -449,11 +477,13 @@ onMounted(async () => {
   await loadTotalMouvementVariableMensuel()
   await loadTotalVirementVariable()
   await loadHistoriqueMouvementsEpargne()
+  await loadDepensesProjetsMoisCourant()
   if (activeTab.value) {
     setTimeout(() => {
       createPieChart(activeTab.value)
     }, 0)
   }
+  useEnsureEpargneProjet()
 })
 
 // Ajouter cette nouvelle fonction après getMouvementsCompte

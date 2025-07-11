@@ -130,6 +130,7 @@ import ProjectPanel from '~/components/projects/ProjectPanel.vue'
 import EditProjectButton from '~/components/projects/EditProjectButton.vue'
 import DeleteProjectButton from '~/components/projects/DeleteProjectButton.vue'
 import { useSupabaseClient } from '#imports'
+import useEnsureEpargneProjet from '@/composables/useEnsureEpargneProjet'
 
 const client = useSupabaseClient()
 
@@ -216,6 +217,8 @@ onMounted(async () => {
   } else {
     epargneProjet.value = epargneData
   }
+
+  useEnsureEpargneProjet()
 })
 
 // Sauvegarder un nouveau projet
