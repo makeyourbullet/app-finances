@@ -1401,13 +1401,6 @@ onMounted(async () => {
   }
 })
 
-const VueSvgGauge = ref(null)
-onMounted(async () => {
-  if (typeof window !== 'undefined') {
-    VueSvgGauge.value = (await import('vue-svg-gauge')).default
-  }
-})
-
 const virement = ref({ source: null, cible: null, montant: null })
 const virementForm = ref(null)
 const loadingVirement = ref(false)
