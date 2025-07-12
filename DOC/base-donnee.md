@@ -82,6 +82,7 @@ Ce fichier documente les tables Supabase utilisées dans l'application.
 |----------------|----------|------------------------------------------|
 | `id`           | uuid     | Identifiant unique                       |
 | `mouvement_id` | uuid     | Mouvement variable concerné              |
+| `groupe`       | uuid     | UUID pour lié la paire de virement       |
 | `compte_linked`| text     | Compte source ou recepteur               |
 | `montant`      | numeric  | Montant de base                          |
 | `created_at`   | timestamp| Date de création                         |
