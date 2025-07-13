@@ -12,15 +12,14 @@
         fill="none"
       />
   
-      <!-- Barre de progression -->
-      <path
+         <!-- Barre de progression -->
+         <path
         :d="progressPath"
         :stroke="progressColor"
         stroke-width="20"
         fill="none"
         stroke-linecap="round"
       />
-  
       <!-- Pas de texte au centre -->
     </svg>
   </template>
@@ -42,8 +41,7 @@
     const angle = Math.PI * percentage.value
     const x = 100 + 90 * Math.cos(Math.PI - angle)
     const y = 100 - 90 * Math.sin(Math.PI - angle)
-    const largeArc = percentage.value > 0.5 ? 1 : 0
-    return `M 10 100 A 90 90 0 ${largeArc} 1 ${x} ${y}`
+    return `M 10 100 A 90 90 0 0 1 ${x} ${y}`
   })
   </script>
   

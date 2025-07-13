@@ -2,9 +2,9 @@
   <v-card class="mb-4">
     <v-card-title>Notes</v-card-title>
     <v-card-text>
-      <v-form @submit.prevent="sauvegarderNote" ref="noteForm">
+      <v-form @submit.prevent="onSubmit" ref="noteForm">
         <v-textarea
-          v-model="note"
+          v-model="localNote"
           label="Écrire une note..."
           rows="4"
           auto-grow
@@ -38,10 +38,11 @@
   </v-card>
 </template>
 <script setup>
-import { toRefs } from 'vue'
+import { ref, toRefs } from 'vue'
+defineEmits([])
+const noteForm = ref(null)
 const props = defineProps({
   notesList: Array,
-  note: String,
   loadingNote: Boolean,
   sauvegarderNote: Function,
   editNoteId: [String, Number, null],
@@ -54,7 +55,6 @@ const props = defineProps({
 })
 const {
   notesList,
-  note,
   loadingNote,
   sauvegarderNote,
   editNoteId,
@@ -65,4 +65,12 @@ const {
   deleteNote,
   formatDate
 } = toRefs(props)
+
+const localNote = ref('')
+
+async function onSubmit() {
+  if (!localNote.value.trim()) return
+  await sauvegarderNote.value(localNote.value)
+  localNote.value = ''
+}
 </script> 

@@ -31,15 +31,20 @@ export function useDepensesProjets() {
   // Mettre à jour une dépense projet
   const updateDepenseProjet = async (depenseId, montantSaisi) => {
     // Nettoyer la valeur saisie
-    const montantNettoye = montantSaisi.replace(/[^ -9,.-]/g, '').replace(',', '.')
+    const montantNettoye = montantSaisi.replace(/[^0-9.,-]/g, '').replace(',', '.')
     const montantFinal = parseFloat(montantNettoye)
     if (isNaN(montantFinal)) {
-      throw new Error(`Montant invalide pour dépense ${depenseId}: ${montantSaisi}`)
+      console.error(`[updateDepenseProjet] Montant invalide pour dépense ${depenseId}: saisi='${montantSaisi}' nettoyé='${montantNettoye}'`)
+      alert(`Montant invalide pour dépense ${depenseId}: '${montantSaisi}'`)
+      return
     }
-    const { error } = await client
+    console.log(`[updateDepenseProjet] Update depense id=${depenseId} montant=${montantFinal}`)
+    const { data, error } = await client
       .from('depenses_projet')
       .update({ montant: montantFinal })
       .eq('id', depenseId)
+      .select()
+    console.log('[updateDepenseProjet] Supabase update result:', { data, error });
     if (error) {
       console.error('Erreur mise à jour dépense:', error)
       throw error

@@ -178,6 +178,7 @@ onMounted(() => {
 watch(
   () => [props.totalDepensesProjets, props.totalDepensesFixes, props.totalDepensesVariables],
   () => {
+    console.log('[DEBUG] DoughnutDepenses props', props)
     renderChart()
   }
 )

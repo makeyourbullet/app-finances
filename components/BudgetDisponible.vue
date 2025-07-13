@@ -9,8 +9,8 @@
             :value="budgetDisponibleInitial > 0 ? (totalDepensesPerso / budgetDisponibleInitial) * 100 : 0"
             :max="100"
             unit="%"
-            bgColor="#e0e0e0"
-            progressColor="#1976d2"
+            bgColor="#f7e6e8"
+            progressColor="#f691a9"
             style="width:70%;"
           />
           <div class="text-center mt-2">
@@ -40,7 +40,7 @@
           </v-table>
           <div style="border-top:1px solid #e0e0e0;margin:16px 0;"></div>
           <div class="mb-4 text-right">Reste à dépenser : {{ formatAmount(resteBudgetPerso) }} €</div>
-          <v-form @submit.prevent="ajouterDepensePerso" ref="depensePersoForm">
+          <v-form @submit.prevent="onSubmit" ref="depensePersoForm">
             <div class="d-flex align-center" style="width:100%; gap: 8px;">
               <v-text-field
                 v-model="nouvelleDepensePerso.description"
@@ -77,7 +77,8 @@
   </v-card>
 </template>
 <script setup>
-import { toRefs } from 'vue'
+import { ref, toRefs } from 'vue'
+const depensePersoForm = ref(null)
 const props = defineProps({
   budgetDisponibleInitial: Number,
   totalDepensesPerso: Number,
@@ -102,4 +103,16 @@ const {
   formatAmount,
   formatDate
 } = toRefs(props)
+
+async function onSubmit() {
+  console.log('[DEBUG] depensePersoForm.value', depensePersoForm.value)
+  const result = await depensePersoForm.value?.validate?.()
+  console.log('[DEBUG] validate() result', result)
+  if (result?.valid) {
+    console.log('[DEBUG] Validation OK, appel ajouterDepensePerso')
+    ajouterDepensePerso.value()
+  } else {
+    console.log('[DEBUG] Validation FAIL')
+  }
+}
 </script> 

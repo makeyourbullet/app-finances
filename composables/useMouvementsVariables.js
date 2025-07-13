@@ -39,55 +39,32 @@ export function useMouvementsVariables() {
     const currentDate = new Date()
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
     const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+    // 1. Charger tous les mouvements variables
+    const { data: mouvementsData, error: mouvementsError } = await client
+      .from('mouvements_variables')
+      .select('*')
+      .order('nom')
+    if (mouvementsError) {
+      console.error('Erreur lors du chargement des mouvements variables:', mouvementsError)
+      return
+    }
+    // 2. Charger tous les montants mensuels du mois courant
     const { data: montantsMensuelsData, error: mensuelsError } = await client
       .from('mouvements_variables_mensuels')
-      .select(`
-        id,
-        date,
-        montant,
-        mouvements_variables_id,
-        mouvements_variables!inner (
-          id,
-          nom,
-          type,
-          compte_id,
-          nature
-        )
-      `)
+      .select('*')
       .gte('date', firstDayOfMonth.toISOString().split('T')[0])
       .lte('date', lastDayOfMonth.toISOString().split('T')[0])
     if (mensuelsError) {
       console.error('Erreur lors du chargement des montants mensuels:', mensuelsError)
       return
     }
-    if (montantsMensuelsData && montantsMensuelsData.length > 0) {
-      mouvementsVariables.value = montantsMensuelsData.map(mensuel => ({
-        id: mensuel.mouvements_variables.id,
-        nom: mensuel.mouvements_variables.nom,
-        type: mensuel.mouvements_variables.type,
-        compte_id: mensuel.mouvements_variables.compte_id,
-        montant: mensuel.montant,
-        nature: mensuel.mouvements_variables.nature
-      })).sort((a, b) => a.nom.localeCompare(b.nom))
-      montantsMensuels.value = {}
-      mouvementsVariables.value.forEach(mouvement => {
-        montantsMensuels.value[mouvement.id] = mouvement.montant.toString()
-      })
-    } else {
-      const { data: mouvementsData, error: mouvementsError } = await client
-        .from('mouvements_variables')
-        .select('*')
-        .order('nom')
-      if (mouvementsError) {
-        console.error('Erreur lors du chargement des mouvements variables:', mouvementsError)
-        return
-      }
-      mouvementsVariables.value = mouvementsData
-      montantsMensuels.value = {}
-      mouvementsData.forEach(mouvement => {
-        montantsMensuels.value[mouvement.id] = mouvement.montant.toString()
-      })
-    }
+    // 3. Pour chaque mouvement, on cherche s'il a un montant mensuel ce mois-ci
+    mouvementsVariables.value = mouvementsData
+    montantsMensuels.value = {}
+    mouvementsData.forEach(mouvement => {
+      const mensuel = montantsMensuelsData?.find(m => m.mouvements_variables_id === mouvement.id)
+      montantsMensuels.value[mouvement.id] = mensuel ? mensuel.montant.toString() : (mouvement.montant?.toString() || '')
+    })
   }
 
   // Sauvegarde des montants saisis
@@ -100,7 +77,7 @@ export function useMouvementsVariables() {
         const montantSaisi = montantsMensuels.value[mouvement.id]
         let montantFinal
         if (montantSaisi) {
-          const montantNettoye = montantSaisi.replace(/[^,.-]/g, '').replace(',', '.')
+          const montantNettoye = montantSaisi.replace(/[^0-9.,-]/g, '').replace(',', '.')
           montantFinal = parseFloat(montantNettoye)
         } else {
           montantFinal = mouvement.montant

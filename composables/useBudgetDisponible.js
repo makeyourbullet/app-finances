@@ -82,7 +82,7 @@ export function useBudgetDisponible() {
 
   // Ajouter une dépense perso
   const ajouterDepensePerso = async () => {
-    if (!depensePersoForm.value?.validate?.()) return
+    console.log('[DEBUG] ajouterDepensePerso appelé')
     // Utiliser l'id déjà chargé du mouvement "Budget Disponible"
     if (!mouvementDisponibleId.value) {
       alert('Erreur: Mouvement "Budget Disponible" non trouvé dans la base de données')
@@ -102,7 +102,7 @@ export function useBudgetDisponible() {
         })
       if (error) throw error
       nouvelleDepensePerso.value = { montant: '', description: '' }
-      depensePersoForm.value?.reset?.()
+      // On ne fait plus de reset du form ici, c'est géré côté composant si besoin
       await loadDepensesPerso()
       await loadBudgetDisponible()
     } catch (error) {

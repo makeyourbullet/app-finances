@@ -23,15 +23,14 @@ export function useNotes() {
   }
 
   // Sauvegarder une nouvelle note
-  const sauvegarderNote = async () => {
-    if (!note.value.trim()) return
+  const sauvegarderNote = async (noteStr) => {
+    if (!noteStr.trim()) return
     loadingNote.value = true
     try {
       const { error } = await client
         .from('notes')
-        .insert({ notes: note.value, created_at: new Date().toISOString() })
+        .insert({ notes: noteStr, created_at: new Date().toISOString() })
       if (error) throw error
-      note.value = ''
       await loadNotes()
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de la note:', error)

@@ -9,8 +9,8 @@
             :value="budgetCoursesTotal > 0 ? (totalDepensesCourses / budgetCoursesTotal) * 100 : 0"
             :max="100"
             unit="%"
-            bgColor="#e0e0e0"
-            progressColor="#1976d2"
+            bgColor="#f7e6e8"
+            progressColor="#f4863e"
             style="width:70%;"
           />
           <div class="text-center mt-2">
@@ -40,7 +40,7 @@
           </v-table>
           <div style="border-top:1px solid #e0e0e0;margin:16px 0;"></div>
           <div class="mb-4 text-right">Reste à dépenser : {{ formatAmount(resteBudgetCourses) }} €</div>
-          <v-form @submit.prevent="ajouterDepenseCourses" ref="depenseCoursesForm">
+          <v-form @submit.prevent="onSubmit" ref="localFormRef">
             <div class="d-flex align-center" style="width:100%; gap: 8px;">
               <v-text-field
                 v-model="nouvelleDepenseCourses.description"
@@ -77,7 +77,7 @@
   </v-card>
 </template>
 <script setup>
-import { toRefs } from 'vue'
+import { ref, toRefs, defineExpose } from 'vue'
 const props = defineProps({
   budgetCoursesTotal: Number,
   totalDepensesCourses: Number,
@@ -102,4 +102,16 @@ const {
   formatAmount,
   formatDate
 } = toRefs(props)
+
+const localFormRef = ref(null)
+defineExpose({
+  validate: () => localFormRef.value?.validate?.(),
+  reset: () => localFormRef.value?.reset?.()
+})
+
+function onSubmit() {
+  if (localFormRef.value?.validate?.()) {
+    ajouterDepenseCourses.value()
+  }
+}
 </script> 

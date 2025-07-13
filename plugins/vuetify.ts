@@ -11,6 +11,23 @@ export default defineNuxtPlugin((nuxtApp) => {
     icons: {
       defaultSet: 'mdi',
     },
+    theme: {
+      defaultTheme: 'myCustomTheme',
+      themes: {
+        myCustomTheme: {
+          dark: false,
+          colors: {
+            primary: '#f86d68',   // Fuschia
+            secondary: '#f7d4d8', // Baby pink
+            accent: '#f691a9',    // Bubblegum
+            warning: '#f4863e',   // Tangerine
+            info: '#e3b055',      // Sunshine
+            error: '#f43662',     // Hot pink
+            background: '#f7e6e8' // Rose pastel
+          }
+        }
+      }
+    }
   })
 
   nuxtApp.vueApp.use(vuetify)

@@ -18,8 +18,17 @@ const props = defineProps({
 const canvas = ref(null)
 let chartInstance = null
 
+const PALETTE = ['#f86d68', '#f7d4d8', '#f691a9', '#f4863e', '#e3b055', '#f43662']
+
+const getBarColors = (count) => {
+  const colors = []
+  for (let i = 0; i < count; i++) {
+    colors.push(PALETTE[i % PALETTE.length])
+  }
+  return colors
+}
+
 const renderChart = () => {
-  console.log('[BarChartEpargnes] renderChart labels:', props.labels, 'data:', props.data)
   if (chartInstance) chartInstance.destroy()
   chartInstance = new Chart(canvas.value, {
     type: 'bar',
@@ -29,7 +38,7 @@ const renderChart = () => {
         {
           label: 'Épargne disponible (€)',
           data: props.data,
-          backgroundColor: '#1976d2',
+          backgroundColor: getBarColors(props.data.length),
           borderRadius: 8,
         }
       ]
@@ -53,7 +62,6 @@ const renderChart = () => {
 }
 
 onMounted(() => {
-  console.log('[BarChartEpargnes] mounted, labels:', props.labels, 'data:', props.data)
   renderChart()
 })
 watch(() => [props.labels, props.data], renderChart, { deep: true })
