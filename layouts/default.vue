@@ -23,4 +23,28 @@ import Navigation from '~/components/Navigation.vue'
   width: 100%;
   box-sizing: border-box;
 }
+</style>
+<style>
+.v-card {
+  border-radius: 30px !important;
+}
+/* Appliquer la police Jua uniquement aux titres d'encarts */
+.v-card-title, .dashboard-title {
+  font-family: 'Lobster Two', cursive;
+  font-size: 2.2em;
+  color: #f43662;
+  font-weight: 700;
+  margin-top: 10px;
+}
+/* Style personnalisé pour les lignes de séparation des tableaux */
+div[style*="border-top"] {
+  border-top: 3px dotted #f43662 !important;
+}
+/* Style pour les lignes à l'intérieur des tableaux Vuetify */
+.v-table tbody tr {
+  border-bottom: 2px dotted #f43662 !important;
+}
+.v-table thead tr {
+  border-bottom: 2px solid #f43662 !important;
+}
 </style> 

@@ -1,15 +1,14 @@
 <template>
-  <v-card>
-    <v-card-title>Virement</v-card-title>
+  <v-card style="padding:20px;">
+    <v-card-title class="text-center w-100">Épargnes</v-card-title>
     <v-card-text>
       <!-- Graphique à barres des mouvements variables épargne et leur montant -->
       <div class="mb-4">
-        <div class="text-subtitle-1">Épargne disponible par mouvement</div>
         <BarChartEpargnes :labels="labelsEpargne" :data="dataEpargne" />
       </div>
-      <v-form @submit.prevent="validerVirement" ref="virementForm">
-        <v-row>
-          <v-col cols="12" sm="6">
+      <v-form @submit.prevent="onSubmitVirement" ref="virementForm">
+        <v-row >
+          <v-col style="padding-bottom:0;" cols="12" sm="6">
             <v-select
               v-model="virement.source"
               :items="mouvementsVariablesEpargne"
@@ -18,20 +17,22 @@
               label="Source (épargne)"
               :rules="[v => !!v || 'Source requise']"
               required
+              variant="outlined"
             ></v-select>
           </v-col>
-          <v-col cols="12" sm="6">
+          <v-col style="padding-bottom:0;" cols="12" sm="6">
             <v-select
               v-model="virement.cible"
-              :items="recepteursVirement"
+              :items="recepteursVirementSorted"
               item-title="nom"
               item-value="id"
               label="Récepteur"
               :rules="[v => !!v || 'Récepteur requis']"
               required
+              variant="outlined"
             ></v-select>
           </v-col>
-          <v-col cols="12">
+          <v-col style="padding-top:0;" cols="12">
             <v-text-field
               v-model="virement.montant"
               label="Montant (€)"
@@ -39,13 +40,14 @@
               :rules="[
                 v => !!v || 'Montant requis',
                 v => v > 0 || 'Le montant doit être positif',
-                v => v <= (getMontantTotalMouvementVariableDashboard(virement.source) || 0) || 'Montant supérieur au disponible'
+                v => v <= montantDisponibleSource || 'Montant supérieur au disponible'
               ]"
               required
+              variant="outlined"
             ></v-text-field>
           </v-col>
         </v-row>
-        <v-btn class="btn-principal" block type="submit" :loading="loadingVirement">Valider le virement</v-btn>
+        <v-btn class="btn-principal" block type="submit" :loading="loadingVirement" color="primary">Valider le virement 👉</v-btn>
       </v-form>
       <!-- Historique des virements du mois en cours -->
       <div class="mt-4">
@@ -67,7 +69,7 @@
               <td>{{ v.compte_linked }}</td>
               <td class="text-right">{{ formatAmount(v.montant) }} €</td>
               <td class="text-right">
-                <v-btn class="btn-danger" icon="mdi-delete" size="small" variant="text" @click="supprimerVirement(v)"></v-btn>
+                <v-btn class="btn-danger" icon="mdi-delete" size="small" variant="text" @click="supprimerVirement(v)" color="error"></v-btn>
               </td>
             </tr>
           </tbody>
@@ -78,7 +80,7 @@
   </v-card>
 </template>
 <script setup>
-import { toRefs, ref, watch, onMounted } from 'vue'
+import { toRefs, ref, watch, onMounted, computed } from 'vue'
 import BarChartEpargnes from './BarChartEpargnes.vue'
 const props = defineProps({
   mouvementsVariablesEpargne: Array,
@@ -107,8 +109,30 @@ const {
   formatDate
 } = toRefs(props)
 
+// Liste des récepteurs avec Compte Perso et Compte Pro en premier
+const recepteursVirementSorted = computed(() => {
+  const comptes = [
+    { id: 'compte_perso', nom: 'Compte Perso' },
+    { id: 'compte_pro', nom: 'Compte Pro' }
+  ]
+  // Filtrer les mouvements pour ne pas dupliquer Compte Perso/Pro si déjà dans la liste
+  const autres = (recepteursVirement.value || []).filter(r => r.id !== 'compte_perso' && r.id !== 'compte_pro')
+  return [...comptes, ...autres]
+})
+
 const labelsEpargne = ref([])
 const dataEpargne = ref([])
+
+// Ajout : montant disponible sur la source sélectionnée
+const montantDisponibleSource = ref(0)
+
+watch(() => virement.value.source, async (newSource) => {
+  if (newSource) {
+    montantDisponibleSource.value = await getMontantTotalMouvementVariableDashboard.value(newSource)
+  } else {
+    montantDisponibleSource.value = 0
+  }
+}, { immediate: true })
 
 const updateBarChartData = async () => {
   const labels = []
@@ -130,4 +154,57 @@ watch(() => props.loadingVirement, (nv, old) => {
   if (old && !nv) updateBarChartData()
 })
 onMounted(updateBarChartData)
-</script> 
+
+const virementForm = ref(null)
+
+async function onSubmitVirement() {
+  const { valid } = await virementForm.value.validate()
+  if (!valid) return
+  validerVirement.value()
+}
+</script>
+<style scoped>
+/* Supprimer le padding-bottom des champs v-select dans le formulaire virement */
+.v-col .v-select {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+/* Supprimer le margin et padding de la ligne contenant les champs source et récepteur */
+.no-mb-row {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+/* Forcer les labels à aller à la ligne si besoin */
+.v-label {
+  white-space: pre-line !important;
+  width: 100% !important;
+  text-align: left;
+}
+/* Pour les en-têtes de tableau (labels penchés) */
+.v-table__th, .v-data-table__th {
+  transform: none !important;
+  white-space: normal !important;
+  text-align: left !important;
+  vertical-align: bottom !important;
+  line-height: 1.2;
+  padding-bottom: 8px;
+  max-width: 120px;
+  word-break: break-word;
+}
+/* Pour forcer les labels d'en-tête de tableau à être horizontaux, même en cas de style inline ou descendant */
+.v-table__th,
+.v-table__th *,
+.v-table__th[style*="rotate"],
+.v-table__th *[style*="rotate"] {
+  transform: none !important;
+  rotate: none !important;
+  writing-mode: initial !important;
+  white-space: normal !important;
+  text-align: left !important;
+  vertical-align: bottom !important;
+  line-height: 1.2;
+  padding-bottom: 8px;
+  max-width: 120px;
+  word-break: break-word;
+}
+</style> 

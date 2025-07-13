@@ -57,7 +57,26 @@ const renderChart = () => {
           ticks: { callback: v => v + ' €' }
         }
       }
-    }
+    },
+    plugins: [
+      {
+        id: 'bar-value-labels',
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          chart.getDatasetMeta(0).data.forEach((bar, i) => {
+            const value = chart.data.datasets[0].data[i];
+            if (value == null) return;
+            ctx.save();
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(value + ' €', bar.x, bar.y - 6);
+            ctx.restore();
+          });
+        }
+      }
+    ]
   })
 }
 
@@ -72,5 +91,6 @@ onBeforeUnmount(() => { if (chartInstance) chartInstance.destroy() })
 canvas {
   max-width: 100%;
   max-height: 320px;
+  margin-bottom: 40px;
 }
 </style> 

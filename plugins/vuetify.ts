@@ -17,9 +17,9 @@ export default defineNuxtPlugin((nuxtApp) => {
         myCustomTheme: {
           dark: false,
           colors: {
-            primary: '#f86d68',   // Fuschia
+            primary: '#f691a9',   // Bubblegum
             secondary: '#f7d4d8', // Baby pink
-            accent: '#f691a9',    // Bubblegum
+            accent: '#f86d68',    // Fuschia
             warning: '#f4863e',   // Tangerine
             info: '#e3b055',      // Sunshine
             error: '#f43662',     // Hot pink

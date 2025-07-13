@@ -1,6 +1,12 @@
 import { ref, watch } from 'vue'
 import { useSupabaseClient } from '#imports'
 
+// Déclaration globale pour le callback de refresh
+let refreshBudgetDisponible = null
+function setRefreshBudgetDisponible(fn) {
+  refreshBudgetDisponible = fn
+}
+
 export function useBudgetDisponible() {
   const client = useSupabaseClient()
   const budgetDisponibleInitial = ref(0)
@@ -13,39 +19,48 @@ export function useBudgetDisponible() {
   const mouvementDisponibleId = ref(null)
 
   // Charger le budget disponible du mois
-  const loadBudgetDisponible = async () => {
-    // À adapter selon ta logique métier (ex: somme des mouvements variables "Autre" ou valeur fixe)
-    // Ici, on suppose un mouvement variable nommé "Budget Disponible"
+  const loadBudgetDisponible = async (totalDepensesVariables = 0) => {
+    // Nouvelle logique : somme des "Rentrée" du mois en cours - total des dépenses variables
     const currentDate = new Date()
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-    const dateStr = firstDayOfMonth.toISOString().split('T')[0]
-    const { data: montantMensuel, error: mensuelError } = await client
-      .from('mouvements_variables_mensuels')
-      .select('montant, mouvements_variables!inner(id, nom)')
-      .eq('date', dateStr)
-      .eq('mouvements_variables.nom', 'Salaire MYB')
-      .single()
-    if (mensuelError && mensuelError.code !== 'PGRST116') {
-      console.error('Erreur lors du chargement du budget disponible:', mensuelError)
+    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+    // 1. Récupérer tous les mouvements variables de type "Rentrée"
+    const { data: mouvementsRentree, error: errMouv } = await client
+      .from('mouvements_variables')
+      .select('id, montant')
+      .eq('type', 'Rentrée')
+    if (errMouv) {
+      console.error('Erreur lors du chargement des mouvements variables de type Rentrée:', errMouv)
       return
     }
-    if (montantMensuel) {
-      budgetDisponibleInitial.value = montantMensuel.montant
-      mouvementDisponibleId.value = montantMensuel.mouvements_variables.id
-    } else {
-      // 2. Si pas trouvé, chercher dans mouvements_variables
-      const { data: montantBase, error: baseError } = await client
-        .from('mouvements_variables')
-        .select('id, montant')
-        .eq('nom', 'Salaire MYB')
-        .single()
-      if (baseError) {
-        console.error('Erreur lors du chargement du budget disponible de base:', baseError)
+    const idsRentree = (mouvementsRentree || []).map(mv => mv.id)
+    // 2. Récupérer tous les montants mensuels de ces mouvements pour le mois en cours
+    let totalRentre = 0
+    let montantsMensuels = []
+    if (idsRentree.length > 0) {
+      const { data: mensuels, error: errMensuels } = await client
+        .from('mouvements_variables_mensuels')
+        .select('montant, mouvements_variables_id')
+        .in('mouvements_variables_id', idsRentree)
+        .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+        .lte('date', lastDayOfMonth.toISOString().split('T')[0])
+      if (errMensuels) {
+        console.error('Erreur lors du chargement des montants mensuels Rentrée:', errMensuels)
         return
       }
-      budgetDisponibleInitial.value = montantBase?.montant || 0
-      mouvementDisponibleId.value = montantBase?.id || null
+      montantsMensuels = mensuels || []
     }
+    // Pour chaque mouvement, on additionne toutes les lignes mensuelles si elles existent, sinon le montant de base
+    for (const mv of mouvementsRentree || []) {
+      const mensuels = montantsMensuels.filter(m => m.mouvements_variables_id === mv.id)
+      if (mensuels.length > 0) {
+        totalRentre += mensuels.reduce((sum, m) => sum + (m.montant || 0), 0)
+      } else {
+        totalRentre += mv.montant || 0
+      }
+    }
+    budgetDisponibleInitial.value = totalRentre - totalDepensesVariables
+    // Le reste à dépenser reste calculé comme avant
     if (depensesPerso.value.length > 0) {
       resteBudgetPerso.value = budgetDisponibleInitial.value - totalDepensesPerso.value
     }
@@ -56,16 +71,62 @@ export function useBudgetDisponible() {
     const currentDate = new Date()
     const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
     const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-    if (!mouvementDisponibleId.value) return
+    // 1. Chercher l'id du mouvement "Salaire MYB"
+    const { data: mv, error: errMv } = await client
+      .from('mouvements_variables')
+      .select('id')
+      .eq('nom', 'Salaire MYB')
+      .single()
+    if (errMv || !mv) {
+      depensesPerso.value = []
+      totalDepensesPerso.value = 0
+      return
+    }
+    // 2. Charger les dépenses pour ce mouvement et ce mois
     const { data, error } = await client
       .from('suivi_budget')
       .select('*')
-      .eq('mouvement_id', mouvementDisponibleId.value)
+      .eq('mouvement_id', mv.id)
       .gte('date', firstDayOfMonth.toISOString().split('T')[0])
       .lte('date', lastDayOfMonth.toISOString().split('T')[0])
       .order('date', { ascending: false })
     if (error) {
-      console.error('Erreur lors du chargement des dépenses perso:', error)
+      depensesPerso.value = []
+      totalDepensesPerso.value = 0
+      return
+    }
+    depensesPerso.value = data || []
+    totalDepensesPerso.value = data?.reduce((sum, d) => sum + d.montant, 0) || 0
+    resteBudgetPerso.value = budgetDisponibleInitial.value - totalDepensesPerso.value
+  }
+
+  // Nouvelle fonction pour la liste et le total "Autre" (uniquement Salaire MYB)
+  const loadDepensesPersoSalaireMYB = async () => {
+    const currentDate = new Date()
+    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+    // Chercher l'id du mouvement "Salaire MYB"
+    const { data: mv, error: errMv } = await client
+      .from('mouvements_variables')
+      .select('id')
+      .eq('nom', 'Salaire MYB')
+      .single()
+    if (errMv || !mv) {
+      depensesPerso.value = []
+      totalDepensesPerso.value = 0
+      return
+    }
+    // Charger les dépenses pour ce mouvement et ce mois
+    const { data, error } = await client
+      .from('suivi_budget')
+      .select('*')
+      .eq('mouvement_id', mv.id)
+      .gte('date', firstDayOfMonth.toISOString().split('T')[0])
+      .lte('date', lastDayOfMonth.toISOString().split('T')[0])
+      .order('date', { ascending: false })
+    if (error) {
+      depensesPerso.value = []
+      totalDepensesPerso.value = 0
       return
     }
     depensesPerso.value = data || []
@@ -82,14 +143,19 @@ export function useBudgetDisponible() {
 
   // Ajouter une dépense perso
   const ajouterDepensePerso = async () => {
-    console.log('[DEBUG] ajouterDepensePerso appelé')
-    // Utiliser l'id déjà chargé du mouvement "Budget Disponible"
-    if (!mouvementDisponibleId.value) {
-      alert('Erreur: Mouvement "Budget Disponible" non trouvé dans la base de données')
-      return
-    }
     loadingDepensePerso.value = true
     try {
+      // Chercher l'id du mouvement "Salaire MYB"
+      const { data: mv, error: errMv } = await client
+        .from('mouvements_variables')
+        .select('id')
+        .eq('nom', 'Salaire MYB')
+        .single()
+      if (errMv || !mv) {
+        alert('Erreur: Mouvement "Salaire MYB" non trouvé dans la base de données')
+        loadingDepensePerso.value = false
+        return
+      }
       const montant = parseFloat(nouvelleDepensePerso.value.montant.replace(',', '.'))
       const currentDate = new Date()
       const { error } = await client
@@ -98,13 +164,14 @@ export function useBudgetDisponible() {
           date: currentDate.toISOString().split('T')[0],
           description: nouvelleDepensePerso.value.description,
           montant: montant,
-          mouvement_id: mouvementDisponibleId.value
+          mouvement_id: mv.id
         })
       if (error) throw error
       nouvelleDepensePerso.value = { montant: '', description: '' }
-      // On ne fait plus de reset du form ici, c'est géré côté composant si besoin
-      await loadDepensesPerso()
-      await loadBudgetDisponible()
+      await loadDepensesPersoSalaireMYB()
+      if (typeof refreshBudgetDisponible === 'function') {
+        await refreshBudgetDisponible()
+      }
     } catch (error) {
       console.error('Erreur lors de l\'ajout de la dépense:', error)
       alert('Erreur lors de l\'ajout de la dépense')
@@ -122,8 +189,10 @@ export function useBudgetDisponible() {
         .delete()
         .eq('id', id)
       if (error) throw error
-      await loadDepensesPerso()
-      await loadBudgetDisponible()
+      await loadDepensesPersoSalaireMYB()
+      if (typeof refreshBudgetDisponible === 'function') {
+        await refreshBudgetDisponible()
+      }
     } catch (error) {
       console.error('Erreur lors de la suppression de la dépense:', error)
       alert('Erreur lors de la suppression de la dépense')
@@ -140,7 +209,11 @@ export function useBudgetDisponible() {
     depensePersoForm,
     loadBudgetDisponible,
     loadDepensesPerso,
+    loadDepensesPersoSalaireMYB,
     ajouterDepensePerso,
-    supprimerDepensePerso
+    supprimerDepensePerso,
+    setRefreshBudgetDisponible
   }
-} 
+}
+
+export { setRefreshBudgetDisponible } 

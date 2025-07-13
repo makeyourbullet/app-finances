@@ -1,8 +1,12 @@
 <template>
-  <v-container fluid>
-    <!-- Première ligne : Variables du mois (33%) et Budget courses + Budget disponible (66%) -->
+  <v-container fluid style="margin-top: 24px;">
     <v-row>
-      <v-col cols="12" md="4">
+      <!-- Colonne d'icônes -->
+      <v-col md="1">
+        <IconSidebar />
+      </v-col>
+      <!-- Colonne gauche (déjà existante) -->
+      <v-col md="4">
         <!-- Variables du mois -->
         <VariablesDuMois
           :mois-en-cours="moisEnCours"
@@ -28,7 +32,8 @@
         <!-- Transactions du mois -->
         <TransactionsMois :transactions-filtered="transactionsFiltered" />
       </v-col>
-      <v-col cols="12" md="8">
+      <!-- Colonne droite (déjà existante) -->
+      <v-col md="7">
         <BudgetCourses
           ref="depenseCoursesForm"
           :budget-courses-total="budgetCoursesTotal"
@@ -103,13 +108,14 @@ import TransactionsMois from '@/components/TransactionsMois.vue'
 import Virement from '@/components/Virement.vue'
 import Notes from '@/components/Notes.vue'
 import BarChartEpargnes from '@/components/BarChartEpargnes.vue'
+import IconSidebar from '@/components/IconSidebar.vue'
 
 import { useMouvementsVariables } from '@/composables/useMouvementsVariables.js'
 import { useDepensesProjets } from '@/composables/useDepensesProjets.js'
 import { useComptesTransactions } from '@/composables/useComptesTransactions.js'
 import { useBudgetCourses } from '@/composables/useBudgetCourses.js'
-import { useBudgetDisponible } from '@/composables/useBudgetDisponible.js'
-import { useVirements } from '@/composables/useVirements.js'
+import { useBudgetDisponible, setRefreshBudgetDisponible as setRefreshBudgetDisponibleBudget } from '@/composables/useBudgetDisponible.js'
+import { useVirements, setRefreshBudgetDisponible as setRefreshBudgetDisponibleVirements } from '@/composables/useVirements.js'
 import { useNotes } from '@/composables/useNotes.js'
 
 // Mouvements variables
@@ -165,7 +171,7 @@ const {
   loadingDepensePerso,
   depensePersoForm,
   loadBudgetDisponible,
-  loadDepensesPerso,
+  loadDepensesPersoSalaireMYB,
   ajouterDepensePerso,
   supprimerDepensePerso
 } = useBudgetDisponible()
@@ -272,6 +278,9 @@ const totalDepensesVariables = computed(() => {
 const totalFixesListe = computed(() =>
   mouvementsFixesDepense.value.reduce((sum, m) => sum + (m.montant || 0), 0)
 )
+const totalProjetsListe = computed(() =>
+  projets.value.reduce((sum, p) => sum + (p.mensualite || 0), 0)
+)
 
 const recepteursVirementEtComptes = computed(() => [
   ...mouvementsVariablesEpargne.value,
@@ -313,8 +322,7 @@ onMounted(async () => {
     loadComptes(),
     loadBudgetCourses(),
     loadDepensesCourses(),
-    loadBudgetDisponible(),
-    loadDepensesPerso(),
+    loadDepensesPersoSalaireMYB(),
     loadMouvementsVariablesEpargne(),
     loadRecepteursVirement(),
     loadVirementsMoisCourant(),
@@ -324,13 +332,31 @@ onMounted(async () => {
   ])
   await calculerRecapDepenses()
   await calculerTransactionsMois()
+  const totalDepensesAll = totalDepensesVariables.value + totalFixesListe.value + totalProjetsListe.value
+  await loadBudgetDisponible(totalDepensesAll)
+})
+
+// Fonction utilitaire pour rafraîchir le budget disponible de façon fiable
+async function refreshBudgetDisponible() {
+  await loadDepensesProjets()
+  await loadMouvementsFixesDepense()
+  await loadMouvementsVariablesDepense()
+  await loadDepensesPersoSalaireMYB()
+  const totalDepensesAll = totalDepensesVariables.value + totalFixesListe.value + totalProjetsListe.value
+  await loadBudgetDisponible(totalDepensesAll)
+}
+
+// 2. Watcher pour garder le budget dispo à jour dynamiquement
+watch([
+  totalDepensesVariables,
+  totalFixesListe,
+  totalProjetsListe
+], () => {
+  refreshBudgetDisponible()
 })
 
 const totalVariablesListe = computed(() =>
   mouvementsVariablesDepense.value.reduce((sum, m) => sum + (m.montant || 0), 0)
-)
-const totalProjetsListe = computed(() =>
-  projets.value.reduce((sum, p) => sum + (p.mensualite || 0), 0)
 )
 
 // Préparation des données pour le graphique à barres des épargnes disponibles
@@ -381,6 +407,11 @@ const saveAllMontants = async () => {
     await loadMouvementsVariables()
     // Mise à jour dynamique de la part Variables du graphique Dépenses
     await loadMouvementsVariablesDepense()
+    // Ajout : rafraîchir tous les budgets et dépenses
+    await loadBudgetCourses()
+    await loadDepensesCourses()
+    await loadBudgetDisponible(totalDepensesVariables.value)
+    await loadDepensesPersoSalaireMYB()
     feedbackMessage.value = 'Montants sauvegardés avec succès !'
     feedbackType.value = 'success'
   } catch (e) {
@@ -394,6 +425,9 @@ const saveAllMontants = async () => {
 
 // Ajout du log juste avant l'appel au composant Notes
 console.log('[DEBUG] note.value dans dashboard', note.value)
+
+setRefreshBudgetDisponibleVirements(refreshBudgetDisponible)
+setRefreshBudgetDisponibleBudget(refreshBudgetDisponible)
 </script>
 
 <style scoped>

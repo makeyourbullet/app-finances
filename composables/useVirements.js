@@ -1,6 +1,12 @@
 import { ref } from 'vue'
 import { useSupabaseClient } from '#imports'
 
+// Déclaration globale pour le callback de refresh
+let refreshBudgetDisponible = null
+function setRefreshBudgetDisponible(fn) {
+  refreshBudgetDisponible = fn
+}
+
 export function useVirements() {
   const client = useSupabaseClient()
   const mouvementsVariablesEpargne = ref([])
@@ -128,27 +134,47 @@ export function useVirements() {
           // Le compte_linked est le nom du mouvement source
           const sourceMouvement = mouvementsVariablesEpargne.value.find(mv => mv.id === virement.value.source)
           compteLinkedEntree = sourceMouvement ? sourceMouvement.nom : ''
+          const insertEntree = {
+            mouvement_id: mouvementIdEntree,
+            compte_linked: compteLinkedEntree,
+            montant: montant,
+            groupe,
+            created_at: now,
+            updated_at: now
+          }
+          console.log('[VIREMENT] Insertion ligne entrée:', insertEntree)
+          await client.from('virements_epargnes').insert(insertEntree)
         } else if (virement.value.cible === 'compte_perso') {
-          // Si le récepteur est Compte Perso, on met "Autre revenu"
-          mouvementIdEntree = null
-          compteLinkedEntree = 'Autre revenu'
+          // Si le récepteur est Compte Perso, on ajoute dans mouvements_variables_mensuels pour "Autre revenu"
+          // 1. Chercher l'id du mouvement "Autre revenu"
+          const { data: autreRevenu, error: autreRevenuError } = await client
+            .from('mouvements_variables')
+            .select('id')
+            .eq('nom', 'Autre revenu')
+            .single()
+          if (autreRevenuError || !autreRevenu) {
+            alert('Impossible de trouver le mouvement "Autre revenu"')
+            throw autreRevenuError || new Error('Mouvement "Autre revenu" non trouvé')
+          }
+          // 2. Insérer dans mouvements_variables_mensuels
+          const currentDate = new Date()
+          const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString().split('T')[0]
+          await client.from('mouvements_variables_mensuels').insert({
+            mouvements_variables_id: autreRevenu.id,
+            date: dateStr,
+            montant: montant
+          })
         }
-        const insertEntree = {
-          mouvement_id: mouvementIdEntree,
-          compte_linked: compteLinkedEntree,
-          montant: montant,
-          groupe,
-          created_at: now,
-          updated_at: now
-        }
-        console.log('[VIREMENT] Insertion ligne entrée:', insertEntree)
-        await client.from('virements_epargnes').insert(insertEntree)
       }
 
       virement.value = { source: null, cible: null, montant: '' }
       console.log('[VIREMENT] Virement validé, formulaire réinitialisé')
       await loadVirementsMoisCourant()
       console.log('[VIREMENT] Virements du mois rechargés')
+      // Appel du refresh budget dispo si défini
+      if (typeof refreshBudgetDisponible === 'function') {
+        await refreshBudgetDisponible()
+      }
     } catch (error) {
       console.error('Erreur lors de la validation du virement:', error)
       alert('Erreur lors de la validation du virement')
@@ -171,7 +197,45 @@ export function useVirements() {
         .neq('id', v.id)
         .eq('created_at', v.created_at)
 
+      // Si le virement était vers Compte Perso, supprimer aussi la ligne dans mouvements_variables_mensuels
+      if (v.compte_linked === 'Compte Perso') {
+        // Chercher l'id du mouvement "Autre revenu"
+        const { data: autreRevenu, error: autreRevenuError } = await client
+          .from('mouvements_variables')
+          .select('id')
+          .eq('nom', 'Autre revenu')
+          .single()
+        if (autreRevenu && autreRevenu.id) {
+          // La date de la ligne mouvements_variables_mensuels est le 1er du mois du created_at du virement
+          const dateObj = new Date(v.created_at)
+          const dateStr = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1).toISOString().split('T')[0]
+          // Chercher toutes les lignes candidates
+          const { data: lignes, error: lignesError } = await client
+            .from('mouvements_variables_mensuels')
+            .select('id, created_at')
+            .eq('mouvements_variables_id', autreRevenu.id)
+            .eq('date', dateStr)
+            .eq('montant', Math.abs(v.montant))
+            .order('created_at', { ascending: false }) // la plus récente d'abord
+          if (lignes && lignes.length > 0) {
+            await client
+              .from('mouvements_variables_mensuels')
+              .delete()
+              .eq('id', lignes[0].id)
+          }
+        }
+      }
+
       await loadVirementsMoisCourant()
+      // Mise à jour des montants d'épargne pour rafraîchir le graphique
+      if (typeof loadMouvementsVariablesEpargne === 'function') {
+        await loadMouvementsVariablesEpargne()
+      }
+      // Appel du refresh budget dispo si défini
+      if (typeof refreshBudgetDisponible === 'function') {
+        await refreshBudgetDisponible()
+      }
+      // Si updateMontantsEpargneDisponibles est accessible dans le parent, il faut l'appeler aussi
     } catch (error) {
       console.error('Erreur lors de la suppression du virement:', error)
       alert('Erreur lors de la suppression du virement')
@@ -192,4 +256,6 @@ export function useVirements() {
     validerVirement,
     supprimerVirement
   }
-} 
+}
+
+export { setRefreshBudgetDisponible } 

@@ -1,7 +1,7 @@
 <template>
   <v-card class="mb-4" style="padding-left:7%;padding-right:7%;padding-bottom:7%;">
     <v-card-text>
-      <div class="dashboard-title text-h5 text-center mb-4">{{ moisEnCours }}</div>
+      <div class="dashboard-title text-center mb-4">{{ moisEnCours }}</div>
       <v-form ref="variablesForm">
         <v-table>
           <tbody>
@@ -46,6 +46,7 @@
         <v-btn
           class="btn-principal mt-4"
           block
+          color="primary"
           @click="sauvegarderMontants"
           :loading="loading"
         >

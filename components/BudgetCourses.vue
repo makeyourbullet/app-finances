@@ -14,7 +14,7 @@
             style="width:70%;"
           />
           <div class="text-center mt-2">
-            <span style="font-size:2em;font-weight:bold;">{{ formatAmount(totalDepensesCourses) }} €</span>
+            <span style="font-size:2em;font-weight:bold; color: #f4863e;">{{ formatAmount(totalDepensesCourses) }} €</span>
             <span style="font-size:1.2em;color:#888;"> / {{ formatAmount(budgetCoursesTotal) }} €</span>
           </div>
         </v-col>
@@ -32,6 +32,7 @@
                     icon="mdi-delete"
                     variant="text"
                     size="small"
+                    color="error"
                     @click="supprimerDepenseCourses(depense.id)"
                   ></v-btn>
                 </td>
@@ -66,6 +67,7 @@
                 type="submit"
                 :loading="loadingDepenseCourses"
                 style="height:40px; align-self:stretch;"
+                color="primary"
               >
                 Je valide 💰
               </v-btn>

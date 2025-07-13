@@ -11,6 +11,17 @@ export default defineNuxtConfig({
 
   css: ['vuetify/styles'],
 
+  app: {
+    head: {
+      link: [
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Lobster+Two:wght@400;700&display=swap'
+        }
+      ]
+    }
+  },
+
   build: {
     transpile: ['vuetify'],
   },
