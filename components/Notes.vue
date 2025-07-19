@@ -22,13 +22,13 @@
                 <div class="note-text">{{ n.notes }}</div>
               </div>
               <div v-else>
-                <v-textarea v-model="editNoteContent" rows="2" auto-grow outlined></v-textarea>
-                <v-btn size="small" class="btn-principal" @click="updateNote(n.id)">Enregistrer</v-btn>
+                <v-textarea v-model="localEditNoteContent" rows="2" auto-grow outlined></v-textarea>
+                <v-btn size="small" class="btn-principal" @click="onUpdateNote(n.id)">Enregistrer</v-btn>
                 <v-btn size="small" @click="cancelEditNote">Annuler</v-btn>
               </div>
             </div>
             <template #append>
-              <v-btn icon="mdi-pencil" size="small" variant="text" @click="startEditNote(n)"></v-btn>
+              <v-btn icon="mdi-pencil" size="small" variant="text" @click="startEditNoteLocal(n)"></v-btn>
               <v-btn icon="mdi-delete" size="small" class="btn-danger" variant="text" @click="deleteNote(n.id)" color="error"></v-btn>
             </template>
           </v-list-item>
@@ -67,11 +67,22 @@ const {
 } = toRefs(props)
 
 const localNote = ref('')
+const localEditNoteContent = ref('')
+
+function startEditNoteLocal(n) {
+  localEditNoteContent.value = n.notes
+  startEditNote.value(n)
+}
 
 async function onSubmit() {
   if (!localNote.value.trim()) return
   await sauvegarderNote.value(localNote.value)
   localNote.value = ''
+}
+
+async function onUpdateNote(id) {
+  if (!localEditNoteContent.value.trim()) return
+  await updateNote.value(id, localEditNoteContent.value)
 }
 </script>
 

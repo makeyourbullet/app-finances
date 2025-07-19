@@ -1,6 +1,6 @@
 <template>
   <v-container>
-    <v-tabs v-model="activeTab">
+    <v-tabs v-model="activeTab" color="#f43662" align-tabs="center">
       <v-tab value="fixe">Mouvements fixes</v-tab>
       <v-tab value="variable">Mouvements variables</v-tab>
     </v-tabs>
@@ -8,131 +8,45 @@
     <v-window v-model="activeTab" class="mt-4">
       <!-- Tab Mouvements Fixes -->
       <v-window-item value="fixe">
-        <v-card flat>
-          <!-- Total -->
-          <v-card-text class="text-h6">
-            Total mensuel : {{ formatAmount(totalFixe) }}€
-          </v-card-text>
-
-          <!-- Bouton Ajouter -->
-          <v-card-text>
-            <v-btn
-              color="primary"
-              prepend-icon="mdi-plus"
-              @click="showAddFixeDialog = true"
-            >
-              Ajouter un mouvement fixe
-            </v-btn>
-          </v-card-text>
-
-          <!-- Tableau -->
-          <v-card-text>
-            <v-table>
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Compte</th>
-                  <th class="text-right">Montant</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="mouvement in mouvementsFixesAvecComptes" :key="mouvement.id">
-                  <td>{{ mouvement.nom }}</td>
-                  <td>{{ mouvement.compte_nom }}</td>
-                  <td class="text-right" :class="{ 'text-success': mouvement.type === 'Rentrée', 'text-error': mouvement.type === 'Dépense' }">
-                    {{ formatAmount(mouvement.montant, mouvement.type) }}€
-                  </td>
-                  <td>
-                    <div class="d-flex gap-2">
-                      <v-btn
-                        icon="mdi-pencil"
-                        size="small"
-                        color="primary"
-                        variant="text"
-                        @click="editMouvementFixe(mouvement)"
-                      ></v-btn>
-                      <v-btn
-                        icon="mdi-delete"
-                        size="small"
-                        color="error"
-                        variant="text"
-                        @click="deleteMouvementFixe(mouvement.id)"
-                      ></v-btn>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
-          </v-card-text>
-        </v-card>
+        <div class="flux-total">Total mensuel : {{ formatAmount(totalFixe) }}€</div>
+        <div class="flux-btn-ajout">
+          <v-btn
+            class="btn-tangerine"
+            prepend-icon="mdi-plus"
+            @click="showAddFixeDialog = true"
+          >
+            Ajouter un mouvement fixe
+          </v-btn>
+        </div>
+        <MouvementTable
+          :mouvements="mouvementsFixesAvecComptes"
+          type="fixe"
+          @edit="editMouvementFixe"
+          @delete="deleteMouvementFixe"
+        />
       </v-window-item>
 
       <!-- Tab Mouvements Variables -->
       <v-window-item value="variable">
-        <v-card flat>
-          <!-- Total -->
-          <v-card-text class="text-h6">
-            Total Dépenses : <span class="text-error">{{ formatAmount(totalVariableDepense) }}€</span><br>
-            Total Rentrées : <span class="text-success">{{ formatAmount(totalVariableRentree, 'Rentrée') }}€</span>
-          </v-card-text>
-
-          <!-- Bouton Ajouter -->
-          <v-card-text>
-            <v-btn
-              color="primary"
-              prepend-icon="mdi-plus"
-              @click="showAddVariableDialog = true"
-            >
-              Ajouter un mouvement variable
-            </v-btn>
-          </v-card-text>
-
-          <!-- Tableau -->
-          <v-card-text>
-            <v-table>
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Compte</th>
-                  <th class="text-right">Montant</th>
-                  <th>Type</th>
-                  <th>Nature</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="mouvement in mouvementsVariablesAvecComptes" :key="mouvement.id">
-                  <td>{{ mouvement.nom }}</td>
-                  <td>{{ mouvement.compte_nom }}</td>
-                  <td class="text-right" :class="{ 'text-success': mouvement.type === 'Rentrée', 'text-error': mouvement.type === 'Dépense' }">
-                    {{ formatAmount(mouvement.montant, mouvement.type) }}€
-                  </td>
-                  <td>{{ mouvement.type }}</td>
-                  <td>{{ mouvement.nature }}</td>
-                  <td>
-                    <div class="d-flex gap-2">
-                      <v-btn
-                        icon="mdi-pencil"
-                        size="small"
-                        color="primary"
-                        variant="text"
-                        @click="editMouvementVariable(mouvement)"
-                      ></v-btn>
-                      <v-btn
-                        icon="mdi-delete"
-                        size="small"
-                        color="error"
-                        variant="text"
-                        @click="deleteMouvementVariable(mouvement.id)"
-                      ></v-btn>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
-          </v-card-text>
-        </v-card>
+        <div class="flux-total">
+          Total Dépenses : <span class="text-error">{{ formatAmount(totalVariableDepense) }}€</span><br>
+          Total Rentrées : <span class="text-success">{{ formatAmount(totalVariableRentree, 'Rentrée') }}€</span>
+        </div>
+        <div class="flux-btn-ajout">
+          <v-btn
+            class="btn-tangerine"
+            prepend-icon="mdi-plus"
+            @click="showAddVariableDialog = true"
+          >
+            Ajouter un mouvement variable
+          </v-btn>
+        </div>
+        <MouvementTable
+          :mouvements="mouvementsVariablesAvecComptes"
+          type="variable"
+          @edit="editMouvementVariable"
+          @delete="deleteMouvementVariable"
+        />
       </v-window-item>
     </v-window>
 
@@ -141,49 +55,15 @@
       <v-card>
         <v-card-title>Ajouter un mouvement fixe</v-card-title>
         <v-card-text>
-          <v-form ref="addFixeForm" @submit.prevent="saveMouvementFixe">
-            <v-text-field
-              v-model="newMouvementFixe.nom"
-              label="Description"
-              :rules="[v => !!v || 'La description est requise']"
-              required
-            ></v-text-field>
-
-            <v-select
-              v-model="newMouvementFixe.compte_id"
-              :items="comptes"
-              item-title="nom_compte"
-              item-value="id"
-              label="Compte"
-              :rules="[v => !!v || 'Le compte est requis']"
-              required
-            ></v-select>
-
-            <v-select
-              v-model="newMouvementFixe.type"
-              :items="['Rentrée', 'Dépense']"
-              label="Type"
-              :rules="[v => !!v || 'Le type est requis']"
-              required
-            ></v-select>
-
-            <v-text-field
-              v-model.number="newMouvementFixe.montant"
-              label="Montant (€)"
-              type="number"
-              :rules="[
-                v => !!v || 'Le montant est requis',
-                v => v > 0 || 'Le montant doit être positif'
-              ]"
-              required
-            ></v-text-field>
-          </v-form>
+          <MouvementForm
+            type="fixe"
+            :initialData="newMouvementFixe"
+            :comptes="comptes"
+            :loading="loading"
+            @submit="saveMouvementFixe"
+            @cancel="() => showAddFixeDialog = false"
+          />
         </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="error" text @click="showAddFixeDialog = false">Annuler</v-btn>
-          <v-btn color="primary" @click="saveMouvementFixe" :loading="loading">Enregistrer</v-btn>
-        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -192,57 +72,15 @@
       <v-card>
         <v-card-title>Ajouter un mouvement variable</v-card-title>
         <v-card-text>
-          <v-form ref="addVariableForm" @submit.prevent="saveMouvementVariable">
-            <v-text-field
-              v-model="newMouvementVariable.nom"
-              label="Description"
-              :rules="[v => !!v || 'La description est requise']"
-              required
-            ></v-text-field>
-
-            <v-select
-              v-model="newMouvementVariable.compte_id"
-              :items="comptes"
-              item-title="nom_compte"
-              item-value="id"
-              label="Compte"
-              :rules="[v => !!v || 'Le compte est requis']"
-              required
-            ></v-select>
-
-            <v-select
-              v-model="newMouvementVariable.type"
-              :items="['Rentrée', 'Dépense']"
-              label="Type"
-              :rules="[v => !!v || 'Le type est requis']"
-              required
-            ></v-select>
-
-            <v-select
-              v-model="newMouvementVariable.nature"
-              :items="['Courant', 'Épargne']"
-              label="Nature"
-              :rules="[v => !!v || 'La nature est requise']"
-              required
-            ></v-select>
-
-            <v-text-field
-              v-model.number="newMouvementVariable.montant"
-              label="Montant (€)"
-              type="number"
-              :rules="[
-                v => !!v || v === 0 || 'Le montant est requis',
-                v => v >= 0 || 'Le montant doit être positif ou nul'
-              ]"
-              required
-            ></v-text-field>
-          </v-form>
+          <MouvementForm
+            type="variable"
+            :initialData="newMouvementVariable"
+            :comptes="comptes"
+            :loading="loading"
+            @submit="saveMouvementVariable"
+            @cancel="() => showAddVariableDialog = false"
+          />
         </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="error" text @click="showAddVariableDialog = false">Annuler</v-btn>
-          <v-btn color="primary" @click="saveMouvementVariable" :loading="loading">Enregistrer</v-btn>
-        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -251,49 +89,15 @@
       <v-card>
         <v-card-title>Modifier le mouvement fixe</v-card-title>
         <v-card-text>
-          <v-form ref="editFixeForm" @submit.prevent="updateMouvementFixe">
-            <v-text-field
-              v-model="editedMouvementFixe.nom"
-              label="Description"
-              :rules="[v => !!v || 'La description est requise']"
-              required
-            ></v-text-field>
-
-            <v-select
-              v-model="editedMouvementFixe.compte_id"
-              :items="comptes"
-              item-title="nom_compte"
-              item-value="id"
-              label="Compte"
-              :rules="[v => !!v || 'Le compte est requis']"
-              required
-            ></v-select>
-
-            <v-select
-              v-model="editedMouvementFixe.type"
-              :items="['Rentrée', 'Dépense']"
-              label="Type"
-              :rules="[v => !!v || 'Le type est requis']"
-              required
-            ></v-select>
-
-            <v-text-field
-              v-model.number="editedMouvementFixe.montant"
-              label="Montant (€)"
-              type="number"
-              :rules="[
-                v => !!v || 'Le montant est requis',
-                v => v > 0 || 'Le montant doit être positif'
-              ]"
-              required
-            ></v-text-field>
-          </v-form>
+          <MouvementForm
+            type="fixe"
+            :initialData="editedMouvementFixe"
+            :comptes="comptes"
+            :loading="loading"
+            @submit="updateMouvementFixe"
+            @cancel="() => showEditFixeDialog = false"
+          />
         </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="error" text @click="showEditFixeDialog = false">Annuler</v-btn>
-          <v-btn color="primary" @click="updateMouvementFixe" :loading="loading">Enregistrer</v-btn>
-        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -302,57 +106,15 @@
       <v-card>
         <v-card-title>Modifier le mouvement variable</v-card-title>
         <v-card-text>
-          <v-form ref="editVariableForm" @submit.prevent="updateMouvementVariable">
-            <v-text-field
-              v-model="editedMouvementVariable.nom"
-              label="Description"
-              :rules="[v => !!v || 'La description est requise']"
-              required
-            ></v-text-field>
-
-            <v-select
-              v-model="editedMouvementVariable.compte_id"
-              :items="comptes"
-              item-title="nom_compte"
-              item-value="id"
-              label="Compte"
-              :rules="[v => !!v || 'Le compte est requis']"
-              required
-            ></v-select>
-
-            <v-select
-              v-model="editedMouvementVariable.type"
-              :items="['Rentrée', 'Dépense']"
-              label="Type"
-              :rules="[v => !!v || 'Le type est requis']"
-              required
-            ></v-select>
-
-            <v-select
-              v-model="editedMouvementVariable.nature"
-              :items="['Courant', 'Épargne']"
-              label="Nature"
-              :rules="[v => !!v || 'La nature est requise']"
-              required
-            ></v-select>
-
-            <v-text-field
-              v-model.number="editedMouvementVariable.montant"
-              label="Montant (€)"
-              type="number"
-              :rules="[
-                v => !!v || v === 0 || 'Le montant est requis',
-                v => v >= 0 || 'Le montant doit être positif ou nul'
-              ]"
-              required
-            ></v-text-field>
-          </v-form>
+          <MouvementForm
+            type="variable"
+            :initialData="editedMouvementVariable"
+            :comptes="comptes"
+            :loading="loading"
+            @submit="updateMouvementVariable"
+            @cancel="() => showEditVariableDialog = false"
+          />
         </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="error" text @click="showEditVariableDialog = false">Annuler</v-btn>
-          <v-btn color="primary" @click="updateMouvementVariable" :loading="loading">Enregistrer</v-btn>
-        </v-card-actions>
       </v-card>
     </v-dialog>
   </v-container>
@@ -361,6 +123,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useSupabaseClient } from '#imports'
+import MouvementForm from '@/components/MouvementForm.vue'
+import MouvementTable from '@/components/MouvementTable.vue'
+
+console.log('[flux.vue] mounted')
 
 const client = useSupabaseClient()
 
@@ -513,14 +279,14 @@ const formatDate = (date) => {
 }
 
 // Fonctions de gestion des mouvements fixes
-const saveMouvementFixe = async () => {
-  const { valid } = await addFixeForm.value.validate()
-  if (!valid) return
-
+const saveMouvementFixe = async (payload) => {
+  console.log('saveMouvementFixe called with:', payload)
   loading.value = true
+  // On retire le champ nature
+  const { nature, ...toInsert } = payload
   const { data, error } = await client
     .from('mouvements_fixes')
-    .insert([newMouvementFixe.value])
+    .insert([{ ...toInsert, actif: true }])
     .select()
     .single()
 
@@ -552,20 +318,17 @@ const editMouvementFixe = (mouvement) => {
   showEditFixeDialog.value = true
 }
 
-const updateMouvementFixe = async () => {
-  const { valid } = await editFixeForm.value.validate()
-  if (!valid) return
-
+const updateMouvementFixe = async (payload) => {
+  console.log('updateMouvementFixe called with:', payload)
   loading.value = true
   try {
+    // On retire le champ nature
+    const { nature, ...toUpdate } = payload
     const { data, error } = await client
       .from('mouvements_fixes')
       .update({
-        nom: editedMouvementFixe.value.nom,
-        compte_id: editedMouvementFixe.value.compte_id,
-        type: editedMouvementFixe.value.type,
-        montant: editedMouvementFixe.value.montant,
-        actif: editedMouvementFixe.value.actif
+        ...toUpdate,
+        actif: toUpdate.actif ?? true
       })
       .eq('id', editedMouvementFixe.value.id)
       .select()
@@ -587,20 +350,18 @@ const updateMouvementFixe = async () => {
 }
 
 // Fonctions de gestion des mouvements variables
-const saveMouvementVariable = async () => {
-  const { valid } = await addVariableForm.value.validate()
-  if (!valid) return
-
+const saveMouvementVariable = async (payload) => {
+  console.log('saveMouvementVariable called with:', payload)
   loading.value = true
   try {
     const { data, error } = await client
       .from('mouvements_variables')
       .insert([{
-        nom: newMouvementVariable.value.nom,
-        compte_id: newMouvementVariable.value.compte_id,
-        type: newMouvementVariable.value.type,
-        montant: newMouvementVariable.value.montant,
-        nature: newMouvementVariable.value.nature
+        nom: payload.nom,
+        compte_id: payload.compte_id,
+        type: payload.type,
+        montant: payload.montant,
+        nature: payload.nature
       }])
       .select()
       .single()
@@ -634,20 +395,18 @@ const editMouvementVariable = (mouvement) => {
   showEditVariableDialog.value = true
 }
 
-const updateMouvementVariable = async () => {
-  const { valid } = await editVariableForm.value.validate()
-  if (!valid) return
-
+const updateMouvementVariable = async (payload) => {
+  console.log('updateMouvementVariable called with:', payload)
   loading.value = true
   try {
     const { data, error } = await client
       .from('mouvements_variables')
       .update({
-        nom: editedMouvementVariable.value.nom,
-        compte_id: editedMouvementVariable.value.compte_id,
-        type: editedMouvementVariable.value.type,
-        montant: editedMouvementVariable.value.montant,
-        nature: editedMouvementVariable.value.nature
+        nom: payload.nom,
+        compte_id: payload.compte_id,
+        type: payload.type,
+        montant: payload.montant,
+        nature: payload.nature
       })
       .eq('id', editedMouvementVariable.value.id)
       .select()
@@ -711,6 +470,23 @@ const deleteMouvementVariable = async (id) => {
 }
 .text-right {
   text-align: right;
+}
+.flux-total {
+  font-size: 1.3em;
+  margin-bottom: 18px;
+  margin-top: 18px;
+  text-align: center;
+}
+.flux-btn-ajout {
+  margin-bottom: 18px;
+  text-align: center;
+}
+.btn-tangerine {
+  border-radius: 32px !important;
+  background: #ffa726 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px 0 rgba(244,54,98,0.08);
+  margin-bottom: 18px;
 }
 </style>
   

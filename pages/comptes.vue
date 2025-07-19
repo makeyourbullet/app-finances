@@ -1,60 +1,71 @@
 <template>
   <v-container>
-    <h1 class="text-h4 mb-4">Mes Comptes</h1>
-
+    <div class="coffre-title-container">
+      <v-icon class="coffre-title-icon" size="56" color="#f43662">mdi-bank-outline</v-icon>
+      <span class="coffre-title-text">Mon coffre</span>
+    </div>
     <!-- Bouton Ajouter -->
+     <div style="text-align: center;">
     <v-btn
-      color="primary"
-      class="mb-6"
+      class="mb-6 btn-tangerine"
+      style="background:#ffa726; color:#fff;"
       prepend-icon="mdi-plus"
       @click="showAddDialog = true"
     >
       Ajouter un compte
     </v-btn>
-
-    <!-- Liste des comptes -->
+    </div>
+    <!-- Liste des comptes par colonne de type -->
     <v-row>
       <v-col
-        v-for="compte in comptes"
-        :key="compte.id"
+        v-for="type in typesCompte"
+        :key="type"
         cols="12"
         md="6"
-        lg="4"
+        lg="3"
       >
-        <v-card>
-          <v-card-title class="d-flex justify-space-between align-center">
-            {{ compte.nom_compte }}
-            <div class="d-flex gap-2">
-              <v-btn
-                icon="mdi-pencil"
-                size="small"
-                color="primary"
-                variant="text"
-                @click="editCompte(compte)"
-              ></v-btn>
-              <v-btn
-                icon="mdi-delete"
-                size="small"
-                color="error"
-                variant="text"
-                @click="confirmDelete(compte)"
-              ></v-btn>
-            </div>
-          </v-card-title>
-
-          <v-card-text>
-            <div class="text-subtitle-1 mb-2">
-              <v-icon icon="mdi-bank" class="mr-2"></v-icon>
-              {{ compte.banque }}
-            </div>
-            <div class="text-body-1 mb-2">
-              <strong>Type:</strong> {{ compte.type_compte }}
-            </div>
-            <div class="text-h6" :class="{ 'text-error': compte.solde_init < 0 }">
-              Solde initial: {{ formatAmount(compte.solde_init) }}€
-            </div>
-          </v-card-text>
-        </v-card>
+        <div class="type-col-title">{{ type }}</div>
+        <draggable
+          :list="comptesParType[type]"
+          item-key="id"
+          handle=".drag-handle"
+          @end="evt => onDragEnd(type, evt)"
+          animation="200"
+        >
+          <template #item="{ element: compte }">
+            <v-card class="mb-4 drag-card compte-card-flex">
+              <div class="compte-card-actions-col">
+                <span class="drag-handle" style="cursor: grab; margin-bottom: 12px; display: flex; justify-content: center;">
+                  <v-icon size="20">mdi-drag</v-icon>
+                </span>
+                <v-btn
+                  icon="mdi-pencil"
+                  size="small"
+                  color="warning"
+                  variant="text"
+                  @click="editCompte(compte)"
+                  class="mb-1"
+                ></v-btn>
+                <v-btn
+                  icon="mdi-delete"
+                  size="small"
+                  color="error"
+                  variant="text"
+                  @click="confirmDelete(compte)"
+                ></v-btn>
+              </div>
+              <div class="compte-card-main-col">
+                <div class="compte-card-title-main">{{ compte.nom_compte }}</div>
+                <div class="compte-card-center mb-2">
+                  {{ compte.banque }}
+                </div>
+                <div class="compte-card-center mb-2">
+                  {{ compte.type_compte === 'PEA' ? 'Investissement' : compte.type_compte }}
+                </div>
+              </div>
+            </v-card>
+          </template>
+        </draggable>
       </v-col>
     </v-row>
 
@@ -145,20 +156,33 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useSupabaseClient } from '#imports'
+import draggable from 'vuedraggable'
 
 const client = useSupabaseClient()
 
 // États
 const comptes = ref([])
+// Comptes triés par type et ordre
+const comptesTries = computed(() => {
+  return [...comptes.value].sort((a, b) => {
+    if (a.type_compte < b.type_compte) return -1;
+    if (a.type_compte > b.type_compte) return 1;
+    // Tri par ordre croissant si même type
+    return (a.ordre ?? 0) - (b.ordre ?? 0)
+  })
+})
 const showAddDialog = ref(false)
 const showDeleteDialog = ref(false)
 const loading = ref(false)
 const form = ref(null)
 
 // Types de compte disponibles
-const typesCompte = ['Courant', 'Épargne', 'PEA', 'Autre']
+const typesCompte = ['Courant', 'Épargne', 'Investissement', 'Autre']
+
+// Pour chaque type, on garde une liste réactive pour le drag & drop
+const comptesParType = reactive({})
 
 // État pour le compte en cours d'édition
 const editedCompte = ref({
@@ -181,10 +205,18 @@ onMounted(async () => {
     const { data, error } = await client
       .from('comptes')
       .select('*')
-      .order('nom_compte', { ascending: true })
-
+      .order('type_compte', { ascending: true })
+      .order('ordre', { ascending: true })
     if (error) throw error
     comptes.value = data
+    // Initialiser les listes par type pour le drag & drop
+    typesCompte.forEach(type => {
+      if (type === 'Investissement') {
+        comptesParType[type] = data.filter(c => c.type_compte === 'Investissement' || c.type_compte === 'PEA')
+      } else {
+        comptesParType[type] = data.filter(c => c.type_compte === type)
+      }
+    })
   } catch (error) {
     console.error('Erreur lors du chargement des comptes:', error)
   } finally {
@@ -248,6 +280,14 @@ const saveCompte = async () => {
       if (index !== -1) {
         comptes.value[index] = data
       }
+      // Mettre à jour dans comptesParType
+      const type = data.type_compte === 'PEA' ? 'Investissement' : data.type_compte
+      if (comptesParType[type]) {
+        const idx = comptesParType[type].findIndex(c => c.id === data.id)
+        if (idx !== -1) {
+          comptesParType[type][idx] = data
+        }
+      }
     } else {
       // Ajout
       const { data, error } = await client
@@ -263,6 +303,12 @@ const saveCompte = async () => {
 
       if (error) throw error
       comptes.value.push(data)
+      // Ajouter dans la bonne colonne
+      const type = data.type_compte === 'PEA' ? 'Investissement' : data.type_compte
+      if (!comptesParType[type]) comptesParType[type] = []
+      comptesParType[type].push(data)
+      // Trier par ordre si besoin
+      comptesParType[type].sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0))
     }
 
     showAddDialog.value = false
@@ -289,12 +335,45 @@ const deleteCompte = async () => {
 
     // Supprimer le compte de la liste locale
     comptes.value = comptes.value.filter(c => c.id !== selectedCompte.value.id)
+    // Supprimer aussi de la colonne
+    const type = selectedCompte.value.type_compte === 'PEA' ? 'Investissement' : selectedCompte.value.type_compte
+    if (comptesParType[type]) {
+      comptesParType[type] = comptesParType[type].filter(c => c.id !== selectedCompte.value.id)
+    }
     showDeleteDialog.value = false
     selectedCompte.value = null
   } catch (error) {
     console.error('Erreur lors de la suppression:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// Drag & drop persistant : mise à jour de l'ordre en base et dans comptes.value
+const onDragEnd = async (type, evt) => {
+  // La nouvelle liste ordonnée pour ce type est comptesParType[type]
+  comptesParType[type].forEach((compte, idx) => {
+    compte.ordre = idx
+  })
+  // Mettre à jour comptes.value (le tableau source)
+  comptes.value = [
+    ...comptes.value.filter(c => {
+      if (type === 'Investissement') {
+        return !(c.type_compte === 'Investissement' || c.type_compte === 'PEA')
+      } else {
+        return c.type_compte !== type
+      }
+    }),
+    ...comptesParType[type]
+  ]
+  // Mettre à jour en base
+  try {
+    for (const compte of comptesParType[type]) {
+      await client.from('comptes').update({ ordre: compte.ordre }).eq('id', compte.id)
+    }
+  } catch (e) {
+    alert('Erreur lors de la sauvegarde de l\'ordre des comptes !')
+    console.error(e)
   }
 }
 </script>
@@ -305,6 +384,84 @@ const deleteCompte = async () => {
 }
 .text-error {
   color: red !important;
+}
+/* Style pour le titre principal "Mon coffre" */
+.coffre-title-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+  margin-top: 12px;
+}
+.coffre-title-icon {
+  margin-right: 18px;
+}
+.coffre-title-text {
+  font-family: 'Lobster Two', cursive;
+  font-size: 3.2em;
+  color: #f43662;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.btn-tangerine {
+  border-radius: 32px !important;
+  font-weight: 600;
+}
+.type-col-title {
+  font-family: 'Lobster Two', cursive;
+  font-size: 1.5em;
+  color: #f43662;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 18px;
+  margin-top: 8px;
+  letter-spacing: 1px;
+}
+.drag-card {
+  transition: box-shadow 0.2s;
+}
+.drag-handle {
+  cursor: grab;
+}
+.compte-card-flex {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 170px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.compte-card-title {
+  font-family: inherit !important;
+  font-size: 1.25em;
+  font-weight: 700;
+}
+.compte-card-title-main {
+  font-family: inherit !important;
+  font-size: 1.5em;
+  font-style: italic;
+  text-align: center;
+  margin-bottom: 8px;
+  color: #f691a9;
+}
+.compte-card-actions-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+  color:#f43662;
+}
+.compte-card-main-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.compte-card-center {
+  text-align: center;
+  width: 100%;
 }
 </style>
 

@@ -15,6 +15,7 @@ Ce fichier documente les tables Supabase utilisées dans l'application.
 | `solde_init`   | numeric  | Solde initial du compte (€)              |
 | `created_at`   | timestamp| Date de création                         |
 | `updated_at`   | timestamp| Dernière mise à jour                     |
+| `ordre`        | int4     | ordre d'affichage                        |
 
 ---
 

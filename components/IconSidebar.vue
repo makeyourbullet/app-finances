@@ -63,11 +63,16 @@ function go(to, isLogout) {
   border: 2px solid #ffa726;
 }
 .custom-icon-btn:focus {
-  border: 2px solid #1976d2;
+  outline: none;
+  border: 2px solid transparent;
 }
 .custom-icon-btn:hover {
   background: rgba(255,105,180,0.12);
   transform: scale(1.15);
+}
+.custom-icon-btn.active:focus {
+  border: 2px solid #ffa726 !important;
+  outline: none;
 }
 .v-icon {
   transition: transform 0.18s cubic-bezier(.4,2,.6,1);

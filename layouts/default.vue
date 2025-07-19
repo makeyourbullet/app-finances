@@ -3,7 +3,17 @@
     <Navigation />
     <v-main>
       <div class="main-container">
-        <slot />
+        <v-container fluid style="margin-top: 24px;">
+          <v-row>
+            <!-- Colonne d'icônes -->
+            <v-col md="1">
+              <IconSidebar />
+            </v-col>
+            <v-col md="11">
+              <slot />
+            </v-col>
+          </v-row>
+        </v-container>
       </div>
     </v-main>
   </v-app>

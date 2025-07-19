@@ -1,98 +1,92 @@
 <template>
-  <v-container fluid style="margin-top: 24px;">
-    <v-row>
-      <!-- Colonne d'icônes -->
-      <v-col md="1">
-        <IconSidebar />
-      </v-col>
-      <!-- Colonne gauche (déjà existante) -->
-      <v-col md="4">
-        <!-- Variables du mois -->
-        <VariablesDuMois
-          :mois-en-cours="moisEnCours"
-          :mouvements-variables="mouvementsVariables"
-          :montants-mensuels="montantsMensuels"
-          :depenses-projets="depensesProjets"
-          :montants-depenses="montantsDepenses"
-          :loading="savingMontants"
-          :sauvegarder-montants="saveAllMontants"
-          :format-amount="formatAmount"
-        />
-        <!-- Dépenses (doughnut) -->
-        <v-card elevation="0" color="transparent" rounded="0">
-          <v-card-text class="pa-0">
-            <DoughnutDepenses
-              :key="totalDepensesVariables"
-              :totalDepensesProjets="totalProjetsListe"
-              :totalDepensesFixes="totalFixesListe"
-              :totalDepensesVariables="totalDepensesVariables"
-            />
-          </v-card-text>
-        </v-card>
-        <!-- Transactions du mois -->
-        <TransactionsMois :transactions-filtered="transactionsFiltered" />
-      </v-col>
-      <!-- Colonne droite (déjà existante) -->
-      <v-col md="7">
-        <BudgetCourses
-          ref="depenseCoursesForm"
-          :budget-courses-total="budgetCoursesTotal"
-          :total-depenses-courses="totalDepensesCourses"
-          :depenses-courses="depensesCourses"
-          :reste-budget-courses="resteBudgetCourses"
-          :nouvelle-depense-courses="nouvelleDepenseCourses"
-          :loading-depense-courses="loadingDepenseCourses"
-          :ajouter-depense-courses="ajouterDepenseCourses"
-          :supprimer-depense-courses="supprimerDepenseCourses"
-          :format-amount="formatAmount"
-          :format-date="formatDate"
-        />
-        <BudgetDisponible
-          :budget-disponible-initial="budgetDisponibleInitial"
-          :total-depenses-perso="totalDepensesPerso"
-          :depenses-perso="depensesPerso"
-          :reste-budget-perso="resteBudgetPerso"
-          :nouvelle-depense-perso="nouvelleDepensePerso"
-          :loading-depense-perso="loadingDepensePerso"
-          :ajouter-depense-perso="ajouterDepensePerso"
-          :supprimer-depense-perso="supprimerDepensePerso"
-          :format-amount="formatAmount"
-          :format-date="formatDate"
-        />
-        <v-row class="mt-4">
-          <v-col cols="12" md="6">
-            <Virement
-              :mouvements-variables-epargne="mouvementsVariablesEpargne"
-              :virements-mois-courant="virementsMoisCourant"
-              :virement="virement"
-              :loading-virement="loadingVirement"
-              :valider-virement="validerVirement"
-              :supprimer-virement="supprimerVirement"
-              :mouvements-variables-map="mouvementsVariablesMap"
-              :recepteurs-virement="recepteursVirementEtComptes"
-              :get-montant-total-mouvement-variable-dashboard="getMontantTotalMouvementVariableDashboard"
-              :format-amount="formatAmount"
-              :format-date="formatDate"
-            />
-          </v-col>
-          <v-col cols="12" md="6">
-            <Notes
-              :notes-list="notesList"
-              :loading-note="loadingNote"
-              :edit-note-id="editNoteId"
-              :edit-note-content="editNoteContent"
-              :sauvegarder-note="sauvegarderNote"
-              :start-edit-note="startEditNote"
-              :cancel-edit-note="cancelEditNote"
-              :update-note="updateNote"
-              :delete-note="deleteNote"
-              :format-date="formatDate"
-            />
-          </v-col>
-        </v-row>
-      </v-col>
-    </v-row>
-  </v-container>
+  <v-row>
+    <!-- Colonne gauche (déjà existante) -->
+    <v-col md="4">
+      <!-- Variables du mois -->
+      <VariablesDuMois
+        :mois-en-cours="moisEnCours"
+        :mouvements-variables="mouvementsVariables"
+        :montants-mensuels="montantsMensuels"
+        :depenses-projets="depensesProjets"
+        :montants-depenses="montantsDepenses"
+        :loading="savingMontants"
+        :sauvegarder-montants="saveAllMontants"
+        :format-amount="formatAmount"
+      />
+      <!-- Dépenses (doughnut) -->
+      <v-card elevation="0" color="transparent" rounded="0">
+        <v-card-text class="pa-0">
+          <DoughnutDepenses
+            :key="totalDepensesVariables"
+            :totalDepensesProjets="totalProjetsListe"
+            :totalDepensesFixes="totalFixesListe"
+            :totalDepensesVariables="totalDepensesVariables"
+          />
+        </v-card-text>
+      </v-card>
+      <!-- Transactions du mois -->
+      <TransactionsMois :transactions-filtered="transactionsFiltered" />
+    </v-col>
+    <!-- Colonne droite (déjà existante) -->
+    <v-col md="7">
+      <BudgetCourses
+        ref="depenseCoursesForm"
+        :budget-courses-total="budgetCoursesTotal"
+        :total-depenses-courses="totalDepensesCourses"
+        :depenses-courses="depensesCourses"
+        :reste-budget-courses="resteBudgetCourses"
+        :nouvelle-depense-courses="nouvelleDepenseCourses"
+        :loading-depense-courses="loadingDepenseCourses"
+        :ajouter-depense-courses="ajouterDepenseCourses"
+        :supprimer-depense-courses="supprimerDepenseCourses"
+        :format-amount="formatAmount"
+        :format-date="formatDate"
+      />
+      <BudgetDisponible
+        :budget-disponible-initial="budgetDisponibleInitial"
+        :total-depenses-perso="totalDepensesPerso"
+        :depenses-perso="depensesPerso"
+        :reste-budget-perso="resteBudgetPerso"
+        :nouvelle-depense-perso="nouvelleDepensePerso"
+        :loading-depense-perso="loadingDepensePerso"
+        :ajouter-depense-perso="ajouterDepensePerso"
+        :supprimer-depense-perso="supprimerDepensePerso"
+        :format-amount="formatAmount"
+        :format-date="formatDate"
+      />
+      <v-row class="mt-4">
+        <v-col cols="12" md="6">
+          <Virement
+            :mouvements-variables-epargne="mouvementsVariablesEpargne"
+            :virements-mois-courant="virementsMoisCourant"
+            :virement="virement"
+            :loading-virement="loadingVirement"
+            :valider-virement="validerVirement"
+            :supprimer-virement="supprimerVirement"
+            :mouvements-variables-map="mouvementsVariablesMap"
+            :recepteurs-virement="recepteursVirementEtComptes"
+            :get-montant-total-mouvement-variable-dashboard="getMontantTotalMouvementVariableDashboard"
+            :format-amount="formatAmount"
+            :format-date="formatDate"
+          />
+        </v-col>
+        <v-col cols="12" md="6">
+          <Notes
+            :notes-list="notesList"
+            :loading-note="loadingNote"
+            :edit-note-id="editNoteId"
+            :edit-note-content="editNoteContent"
+            :sauvegarder-note="sauvegarderNote"
+            :start-edit-note="startEditNote"
+            :cancel-edit-note="cancelEditNote"
+            :update-note="updateNote"
+            :delete-note="deleteNote"
+            :format-date="formatDate"
+          />
+        </v-col>
+      </v-row>
+    </v-col>
+  </v-row>
 </template>
 
 <script setup>

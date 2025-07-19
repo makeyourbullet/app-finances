@@ -27,10 +27,16 @@ export function useNotes() {
     if (!noteStr.trim()) return
     loadingNote.value = true
     try {
-      const { error } = await client
+      const { data, error } = await client
         .from('notes')
         .insert({ notes: noteStr, created_at: new Date().toISOString() })
+        .select()
+      console.log('[DEBUG] Note insérée:', data, error)
       if (error) throw error
+      if (!data || !data[0] || !data[0].id) {
+        alert('Erreur: L\'id de la note insérée est manquant !')
+        return
+      }
       await loadNotes()
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de la note:', error)
@@ -53,15 +59,23 @@ export function useNotes() {
   }
 
   // Mettre à jour une note
-  const updateNote = async (id) => {
-    if (!editNoteContent.value.trim()) return
+  const updateNote = async (id, newContent) => {
+    const contentToSave = typeof newContent === 'string' ? newContent : editNoteContent.value
+    if (!contentToSave.trim()) return
     loadingNote.value = true
     try {
-      const { error } = await client
+      console.log('[DEBUG] updateNote: id =', id, 'contentToSave =', contentToSave)
+      const { data, error } = await client
         .from('notes')
-        .update({ notes: editNoteContent.value })
+        .update({ notes: contentToSave })
         .eq('id', id)
+        .select()
+      console.log('[DEBUG] Résultat update note:', data, error)
       if (error) throw error
+      if (!data || data.length === 0) {
+        alert('Aucune note modifiée ! Vérifie que l\'id est correct et existe en base.')
+        return
+      }
       await loadNotes()
       cancelEditNote()
     } catch (error) {
